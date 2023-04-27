@@ -4,7 +4,6 @@ import logging
 
 
 
-
 class DataParser:
     def __init__(self):
         self.session = requests.Session()
@@ -106,17 +105,42 @@ class DataParser:
                 return self.relogin(self.get_day_marks, period=period, retry=retry)
             table = []
             soup = BeautifulSoup(req_sch.content, 'lxml')
-            periods = soup.find('form').find('select').next
-            print()
-
-
-
+            periods_tags = soup.find('form').find('select').findAll('option')
+            periods = dict()
+            for tag in periods_tags:
+                periods[' '.join(tag.text.strip().split())]=tag.attrs['value']
+            table_tag = soup.find('table')
+            thead = table_tag.find('thead').find('tr').findAll('td')
+            head = list(map(lambda x:x.text, thead))
+            a = head.pop(-2)
+            table.append(head)
+            tbody = table_tag.find('tbody').findAll('tr')
+            for tr_tag in tbody:
+                line = []
+                marks = []
+                td_tags = tr_tag.findAll('td')
+                line.append(td_tags[0].text)
+                mid_mark = td_tags[-3].text
+                end_mark = td_tags[-1].text.strip()
+                for td in td_tags[1:-3]:
+                    marks.append(td.text)
+                if marks:
+                    if period == 'year':
+                        line.append(marks[0])
+                    else:
+                        line.append(marks)
+                line.append(mid_mark)
+                line.append(end_mark)
+                table.append(line)
+            print('\n'.join(list(map(str, table))))
         except Exception as ex:
             if retry:
                 print(f'[error] retry={retry}')
                 return self.schcedule(period=period, retry=(retry - 1))
             else:
                 logging.warning('Сервер не отвечает')
+        else:
+            return periods, table
 
 
 
@@ -126,7 +150,8 @@ class DataParser:
 
 
 
-
-# a = DataParser(ma_login, ma_pass)
-# b = a.schcedule()
+# a = DataParser()
+# a.login(ma_login, ma_pass)
+# b = a.schcedule(period='year')
 # print(b)
+#
