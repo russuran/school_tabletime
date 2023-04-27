@@ -4,15 +4,15 @@ import logging
 
 
 
-ma_login = '5134011266'
-ma_pass = 'UTlw$9M4'
 
 class DataParser:
-    def __init__(self, login, password):
+    def __init__(self):
         self.session = requests.Session()
         self.session.headers.update({
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 YaBrowser/23.3.2.806 Yowser/2.5 Safari/537.36',
             'Upgrade-Insecure-Requests': '1'})
+
+    def login(self, login, password):
         self.auth = {
             'main_login2': login,
             'main_password2': password
@@ -102,6 +102,15 @@ class DataParser:
                 req_sch = self.session.get('https://edu.tatar.ru/user/diary/term', params={'term': str(period)})
             else:
                 req_sch = self.session.get('https://edu.tatar.ru/user/diary/term')
+            if req_sch.url == 'https://edu.tatar.ru/message':
+                return self.relogin(self.get_day_marks, period=period, retry=retry)
+            table = []
+            soup = BeautifulSoup(req_sch.content, 'lxml')
+            periods = soup.find('form').find('select').next
+            print()
+
+
+
         except Exception as ex:
             if retry:
                 print(f'[error] retry={retry}')
@@ -118,6 +127,6 @@ class DataParser:
 
 
 
-a = DataParser(ma_login, ma_pass)
-b = a.get_day_marks('1682370000')
-print(b)
+# a = DataParser(ma_login, ma_pass)
+# b = a.schcedule()
+# print(b)
