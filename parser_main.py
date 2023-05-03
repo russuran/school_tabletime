@@ -2,6 +2,12 @@ import requests
 from bs4 import BeautifulSoup
 import logging
 
+# ma_login = '5185004386'
+# ma_pass = 'aC!pYG7W'
+# ma_login = '5134011266'
+# ma_pass = 'UTlw$9M4'
+# ma_login = '5153122086'
+# ma_pass = '57FC'
 
 
 class DataParser:
@@ -112,25 +118,30 @@ class DataParser:
             table_tag = soup.find('table')
             thead = table_tag.find('thead').find('tr').findAll('td')
             head = list(map(lambda x: x.text, thead))
-            a = head.pop(-2)
+            extra = False
+            if head[-2]== 'Экзамен' or head[-2] == 'График':
+                a = head.pop(-2)
+                extra = True
             table.append(head)
             tbody = table_tag.find('tbody').findAll('tr')
             for tr_tag in tbody:
                 line = []
                 marks = []
                 td_tags = tr_tag.findAll('td')
-                line.append(td_tags[0].text)
-                mid_mark = td_tags[-3].text
-                end_mark = td_tags[-1].text.strip()
-                for td in td_tags[1:-3]:
-                    marks.append(td.text)
-                if marks:
-                    if period == 'year':
-                        line.append(marks[0])
-                    else:
-                        line.append(' '.join([x for x in marks if x]))
-                line.append(mid_mark)
-                line.append(end_mark)
+                if extra:
+                    a = td_tags.pop(-2)
+                if period == 'year':
+                    line = [x.text for x in td_tags]
+                    table.append(line)
+                else:
+                    line = [x.text.strip() for x in td_tags]
+                    marks = []
+                    for x in line[1:-2]:
+                        if x:
+                            marks.append(x)
+                    line = [line[0]]+marks+line[-2:]
+
+
                 table.append(line)
 
         except Exception as ex:
