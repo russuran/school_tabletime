@@ -2,8 +2,6 @@ import requests
 from bs4 import BeautifulSoup
 import logging
 
-ma_login = '5104121066'
-ma_pass = 'KU4Q'
 
 
 class DataParser:
@@ -162,7 +160,7 @@ class DataParser:
             return name
 
 
-a = DataParser()
-a.login(ma_login, ma_pass)
-b = a.get_name()
-print(b)
+# a = DataParser()
+# a.login(ma_login, ma_pass)
+# b = a.schcedule(period='year')
+# print(b)
