@@ -115,8 +115,8 @@ def log_in(message, login):
         markup = types.InlineKeyboardMarkup(row_width=1)
         item1 = types.InlineKeyboardButton('Попробовать ещё раз', callback_data='login_error')
         markup.add(item1)
-        bot.send_message(message.chat.id, 'Неверный логин или пароль!', reply_markup=markup)
-
+        bot.send_message(message.chat.id, 'Неверный логин или пароль! (если же логин и пароль правильные, но не заходит, то скорее всего edu думает, что на них совершается ддос-атака, попробуйте ещё раз через 10 минут)', reply_markup=markup)
+#601732567
 
 def logging(call):
     cursor.execute("SELECT login, password FROM users WHERE user_id = ?", [str(call.message.chat.id)])
@@ -359,6 +359,18 @@ def is_admin_check(chat_id):
     result = cursor.fetchone()
     return bool(result[0])    
 
+
+@bot.message_handler(commands=['send_all'])
+def send_to_all(message):
+    res = message.text.split("|")
+    data = get_add_id()
+    data = set(data)
+    for i in data:
+        bot.send_message(i[0], res[1])
+    print('end')
+    
+        
+    
 def makeSchcedule(call, period):
     options = types.InlineKeyboardMarkup(row_width=1)
         
@@ -371,10 +383,10 @@ def makeSchcedule(call, period):
     res = parser_worker.schcedule(period=period)
     parser_worker.logout()    
     
-
-    if len(res[1][-1]) == 3:
-        res[1][-1].insert(1, '') 
-       
+    if len(res[1][-1]) == 3 and len(res[1][0]) == 4:
+        res[1][-1].insert(1, '')        
+    
+    print(res[1])
     data = res[1]    
     
     periods = res[0]

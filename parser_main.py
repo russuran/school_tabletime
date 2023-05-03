@@ -89,7 +89,7 @@ class DataParser:
                     line.append('\n'.join(markslist))
 
                 else:
-                    line.append('')
+                    line.append([])
 
                 timetable.append(line)
         except Exception as ex:
@@ -142,7 +142,7 @@ class DataParser:
                     line = [line[0]]+[' '.join(marks)]+line[-2:]
 
 
-                table.append(line)
+                    table.append(line)
 
         except Exception as ex:
             if retry:
