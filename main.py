@@ -1,6 +1,5 @@
 import telebot
 from telebot import types
-from text import texts
 from telebot_calendar import Calendar, CallbackData, RUSSIAN_LANGUAGE
 from telebot.types import ReplyKeyboardRemove, CallbackQuery 
 from texttable import Texttable
@@ -236,6 +235,7 @@ def agree_send_adv(message, adv):
 def mailing_adv(message, medialst, formatt):
     bot.send_message(message.chat.id, 'ОТПРАВКА...')
     data = get_add_id()
+    data = set(data)
     c = 0
     if formatt == 'photo':
         for id in data:
@@ -362,10 +362,6 @@ def is_admin_check(chat_id):
 def makeSchcedule(call, period):
     options = types.InlineKeyboardMarkup(row_width=1)
         
-    back = types.InlineKeyboardButton(text='⬅ Назад', callback_data='mainmenu')
-    
-    options.add(back)
-        
     t = Texttable()
     
     userdata = logging(call)
@@ -376,12 +372,11 @@ def makeSchcedule(call, period):
     parser_worker.logout()    
     
 
-    print(res)    
-    data = res[1]
-    for i in range(len(data)):
-        if len(data[i]) != 4:
-            for j in range(4 - len(data[i])): 
-                data[i].append('-')    
+    if len(res[1][-1]) == 3:
+        res[1][-1].insert(1, '') 
+       
+    data = res[1]    
+    
     periods = res[0]
     
     
@@ -407,9 +402,13 @@ def makeSchcedule(call, period):
     flname = str(randint(100000, 1000000))
     img.save(f'{flname}.png')       
     
-    per = f'{period} полугодие' if period != 'year' else 'год'
+    back = types.InlineKeyboardButton(text='⬅ Назад', callback_data='mainmenu')
     
-    bot.send_photo(call.message.chat.id, open(f'{flname}.png', 'rb'), caption=f'Ваш табель успеваемости за {per} ✅', reply_markup=options)
+    options.add(back)    
+    
+    per = list(periods.keys())[list(periods.values()).index(period)]
+    
+    bot.send_photo(call.message.chat.id, open(f'{flname}.png', 'rb'), caption=f'✅ Ваш табель успеваемости за {per.lower()}', reply_markup=options)
     
     os.remove(f'{flname}.png')    
  
@@ -602,7 +601,8 @@ def callback(call):
     
     '''
 
-    if call.data == 'year' or call.data == '1' or call.data == '2':
+    if call.data == 'year' or call.data == '1' or call.data == '2' or\
+       call.data == '3' or call.data == '4':
         makeSchcedule(call, call.data)
 
     
@@ -645,8 +645,7 @@ def callback(call):
         
         
         back = types.InlineKeyboardButton(text='⬅ Назад', callback_data='mainmenu')
-        exit = types.InlineKeyboardButton(text='🛑 Выйти', callback_data='exit')
-        options.add(exit, back)
+        options.add(back)
         bot.edit_message_text('⚙ Настройки', call.message.chat.id, call.message.message_id,
                               reply_markup=options)    
     
@@ -684,4 +683,5 @@ def buildCalendar(message):
                                    year=now.year,
                                    month=now.month,),)   
     
-bot.infinity_polling(none_stop=True)
+if __name__ == '__main__':
+    bot.polling(none_stop=True)
