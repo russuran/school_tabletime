@@ -26,9 +26,17 @@ conn = sqlite3.connect('db/telebot_users', check_same_thread=False)
 cursor = conn.cursor()
 
 def add_table_values(user_id, name, login, password):
-    cursor.execute('INSERT INTO users (user_id, name, login, password) VALUES (?, ?, ?, ?)', (user_id, name, login, password))
-    conn.commit()
-
+    cursor.execute('SELECT * FROM users WHERE user_id = ? AND login = ?', (user_id, login, ))
+    res = cursor.fetchall()
+    if len(res) == 0:
+        cursor.execute('INSERT INTO users (user_id, name, login, password) VALUES (?, ?, ?, ?)', (user_id, name, login, password))
+        conn.commit()
+    else:
+        #markup = types.InlineKeyboardMarkup(row_width=1)
+        #back = types.InlineKeyboardButton(text='⬅ Назад', callback_data='mainmenu')
+        #markup.row(back)
+        bot.send_message(user_id, 'Такой пользователь уже добавлен в ваш аккаунт ⚙', reply_markup=markup)
+        
 @bot.message_handler(commands=['start', 'Войти'])
 def on_start(message):
     if is_admin_check(message.chat.id):
@@ -111,6 +119,22 @@ def logging(call):
     result = cursor.fetchall()
     return result
 
+
+def choose_user(call, res):
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    for i in range(len(res)):
+        parser_worker = DataParser()
+        parser_worker.login(res[i][3], res[i][4])
+        name = parser_worker.get_name()
+        item = types.InlineKeyboardButton(f'{name}', callback_data=f'user{i}')
+        markup.row(item)
+    try:
+        bot.edit_message_text('✅ Выберите пользователя:', call.message.chat.id, call.message.message_id,
+                                  reply_markup=markup)
+    except Exception as e:
+        bot.send_message(call.message.chat.id, '✅ Выберите пользователя:', reply_markup=markup)
+        
+        
 def get_add_id():
     cursor.execute("SELECT user_id FROM users")
     res = cursor.fetchall()
@@ -299,13 +323,9 @@ def callback_inline(call: CallbackQuery):
             bot.send_message(call.message.chat.id, '✅ Рады видеть вас снова!', reply_markup=markup)
            
 
-def choose_user(call):
-    '''
-    choose
-    '''
-    return login, password
 
-def buildMainMenu(call):
+
+def buildMainMenu(call, name=''):
     markup = types.InlineKeyboardMarkup(row_width=1)
     
     item3 = types.InlineKeyboardButton('🎒 Расписание и оценки', callback_data='Grades')
@@ -316,11 +336,16 @@ def buildMainMenu(call):
     
     item4 = types.InlineKeyboardButton('⚙ Настройки', callback_data='Options')
     markup.row(item4)
+    
+    if name != '':
+        res = f'✅ Рады видеть вас снова, {name.split(" ")[-1]}!'
+    else:
+        res = '✅ Рады видеть вас снова!'
     try:
-        bot.edit_message_text('✅ Рады видеть вас снова!', call.message.chat.id, call.message.message_id,
+        bot.edit_message_text(res, call.message.chat.id, call.message.message_id,
                               reply_markup=markup)
     except Exception as e:
-        bot.send_message(call.message.chat.id, '✅ Рады видеть вас снова!', reply_markup=markup)
+        bot.send_message(call.message.chat.id, res, reply_markup=markup)
     
 
 def is_admin_check(chat_id):
@@ -373,8 +398,10 @@ def makeSchcedule(call, period):
        
        
     img.save('out.png')
-        
-    bot.send_photo(call.message.chat.id, open("out.png", 'rb'), caption=f'Ваш табель успеваемости ✅', reply_markup=options)
+    
+    per = f'{period} полугодие' if period != 'year' else 'год'
+    
+    bot.send_photo(call.message.chat.id, open("out.png", 'rb'), caption=f'Ваш табель успеваемости за {per} ✅', reply_markup=options)
     
     os.remove("out.png")    
  
@@ -497,7 +524,31 @@ def callback(call):
     if call.data == 'login_error':
         bot.delete_message(call.message.chat.id, call.message.message_id)
         get_login(call.message)
-
+    
+    
+    if 'user' in call.data:
+        cursor.execute("SELECT * FROM users WHERE user_id = ?", (str(call.message.chat.id),))
+        res = cursor.fetchall()
+        
+        cursor.execute("DELETE FROM users WHERE user_id = ?", (str(call.message.chat.id), ))
+        conn.commit()
+        
+        index = call.data.split()
+        
+        index = int(index[0][-1])
+        
+        parser_worker = DataParser()
+        parser_worker.login(res[index][3], res[index][4])
+        name = parser_worker.get_name()
+        
+        add_table_values(res[index][1], res[index][2], res[index][3], res[index][4])
+        del res[index]
+        for i in res:
+            add_table_values(i[1], i[2], i[3], i[4])
+        
+        buildMainMenu(call, name)
+            
+            
     '''
    
     МЕНЮ ОЦЕНOK
@@ -559,13 +610,31 @@ def callback(call):
     НАСТРОЙКИ
     
     '''
+    if call.data == 'add_new':
+        get_login(call.message)
     
+    if call.data == 'change_usr':
+        cursor.execute("SELECT * FROM users WHERE user_id=?", (str(call.message.chat.id),))
+        res = cursor.fetchall()        
+        
+        choose_user(call, res)
+        
     if call.data == 'Options':
         options = types.InlineKeyboardMarkup(row_width=1)
         
-        exit = types.InlineKeyboardButton(text='🛑 Выйти', callback_data='exit')
-        back = types.InlineKeyboardButton(text='⬅ Назад', callback_data='mainmenu')
+        add_user = types.InlineKeyboardButton(text='ㅤㅤㅤ✏ Добавить пользователяㅤㅤㅤ', callback_data='add_new')
+        options.row(add_user)
         
+        cursor.execute("SELECT * FROM users WHERE user_id=?", (str(call.message.chat.id),))
+        res = cursor.fetchall()
+    
+        if len(res) != 1:
+            change = types.InlineKeyboardButton(text='👨‍💻 Поменять аккаунт', callback_data='change_usr')
+            options.row(change)
+        
+        
+        back = types.InlineKeyboardButton(text='⬅ Назад', callback_data='mainmenu')
+        exit = types.InlineKeyboardButton(text='🛑 Выйти', callback_data='exit')
         options.add(exit, back)
         bot.edit_message_text('⚙ Настройки', call.message.chat.id, call.message.message_id,
                               reply_markup=options)    
