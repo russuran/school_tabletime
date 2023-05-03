@@ -9,8 +9,11 @@ from PIL import Image, ImageFont, ImageDraw
 import os
 import time
 import sqlite3
+from random import randint
+
 
 from parser_main import DataParser
+
 
 class Adv:
     def __init__(self):
@@ -71,23 +74,25 @@ def add_admin(message):
         
         
 def get_login(message):
-    bot.send_message(message.chat.id, 'Введите логин на edu.tatar:')
+    bot.send_message(message.chat.id, 'Введите логин на edu.tatar (только цифры, без пробелов):')
     bot.register_next_step_handler(message, get_password)
     
                                       
 def get_password(message):
     login = message.text
     
-    password = bot.send_message(message.chat.id, 'Введите пароль:')
+    password = bot.send_message(message.chat.id, 'Введите пароль (учитывая регистр, без пробелов):')
 	
     bot.register_next_step_handler(password, log_in, login)
 
 
 def log_in(message, login):
     password = message.text
-     
     parser_worker = DataParser()
+    print('user ' + str(login) + ' ' + password + ' joined')
     parser_worker.login(login, password)
+    
+    
     
 	
     if parser_worker.login_status:
@@ -296,15 +301,16 @@ def callback_inline(call: CallbackQuery):
             
             ImageDraw.Draw(img).text((50,50), t.draw(), font=fnt, fill=(0,0,0))
            
-           
-            img.save('out.png')
+            flname = str(randint(100000, 1000000))
+            img.save(f'{flname}.png')   
+            
             
             intDay = date.weekday()
             days = ['понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу', 'воскресенье']
             months = ['января', 'февраля','мара', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
-            bot.send_photo(call.message.chat.id, open("out.png", 'rb'), caption=f'Ваше расписание на {days[intDay]} ({date.day} {months[date.month - 1]}) ✅', reply_markup=options)
+            bot.send_photo(call.message.chat.id, open(f'{flname}.png', 'rb'), caption=f'Ваше расписание на {days[intDay]} ({date.day} {months[date.month - 1]}) ✅', reply_markup=options)
         
-            os.remove("out.png")
+            os.remove(f'{flname}.png')
             
         
         elif action == "CANCEL":
@@ -370,10 +376,12 @@ def makeSchcedule(call, period):
     parser_worker.logout()    
     
 
-        
+    print(res)    
     data = res[1]
-    if len(data[-1]) == 3:
-        data[-1].append('-')    
+    for i in range(len(data)):
+        if len(data[i]) != 4:
+            for j in range(4 - len(data[i])): 
+                data[i].append('-')    
     periods = res[0]
     
     
@@ -396,14 +404,14 @@ def makeSchcedule(call, period):
         
     ImageDraw.Draw(img).text((50,50), t.draw(), font=fnt, fill=(0,0,0))
        
-       
-    img.save('out.png')
+    flname = str(randint(100000, 1000000))
+    img.save(f'{flname}.png')       
     
     per = f'{period} полугодие' if period != 'year' else 'год'
     
-    bot.send_photo(call.message.chat.id, open("out.png", 'rb'), caption=f'Ваш табель успеваемости за {per} ✅', reply_markup=options)
+    bot.send_photo(call.message.chat.id, open(f'{flname}.png', 'rb'), caption=f'Ваш табель успеваемости за {per} ✅', reply_markup=options)
     
-    os.remove("out.png")    
+    os.remove(f'{flname}.png')    
  
 
 def buidGradesMenu(call):
@@ -454,13 +462,15 @@ def buildGradesToday(call):
     ImageDraw.Draw(img).text((50,50), t.draw(), font=fnt, fill=(0,0,0))
        
        
-    img.save('out.png')
+    flname = str(randint(100000, 1000000))
+    img.save(f'{flname}.png')
+    
     if len(data) != 1:   
-        bot.send_photo(call.message.chat.id, open("out.png", 'rb'), caption=f'Ваше расписание на сегодня ✅', reply_markup=options)
+        bot.send_photo(call.message.chat.id, open(f'{flname}.png', 'rb'), caption=f'Ваше расписание на сегодня ✅', reply_markup=options)
     else:
         bot.edit_message_text('В этот день нет уроков!', call.message.chat.id, call.message.message_id,
                               reply_markup=options)        
-    os.remove("out.png")
+    os.remove(f'{flname}.png')
     
  
 def changeDayOfGrades(call, sign):
@@ -502,13 +512,14 @@ def changeDayOfGrades(call, sign):
     ImageDraw.Draw(img).text((50,50), t.draw(), font=fnt, fill=(0,0,0))
        
        
-    img.save('out.png')
+    flname = str(randint(100000, 1000000))
+    img.save(f'{flname}.png')
         
     if len(data) != 1:
         intDay = date.weekday()
         days = ['понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу', 'воскресенье']
         months = ['января', 'февраля','мара', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
-        bot.send_photo(call.message.chat.id, open("out.png", 'rb'), caption=f'Ваше расписание на {days[intDay]} ({date.day} {months[date.month - 1]}) ✅', reply_markup=options)        
+        bot.send_photo(call.message.chat.id, open(f'{flname}.png', 'rb'), caption=f'Ваше расписание на {days[intDay]} ({date.day} {months[date.month - 1]}) ✅', reply_markup=options)        
 
     else:
         try:
@@ -517,7 +528,7 @@ def changeDayOfGrades(call, sign):
         except Exception as e:
             bot.send_message(call.message.chat.id, 'В этот день нет уроков!', reply_markup=options)
     
-    os.remove("out.png")
+    os.remove(f'{flname}.png')
     
 @bot.callback_query_handler(func=lambda call: True)
 def callback(call):
