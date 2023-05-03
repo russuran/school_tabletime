@@ -4,8 +4,8 @@ import logging
 
 # ma_login = '5185004386'
 # ma_pass = 'aC!pYG7W'
-# ma_login = '5134011266'
-# ma_pass = 'UTlw$9M4'
+ma_login = '5134011266'
+ma_pass = 'UTlw$9M4'
 # ma_login = '5153122086'
 # ma_pass = '57FC'
 
@@ -139,7 +139,7 @@ class DataParser:
                     for x in line[1:-2]:
                         if x:
                             marks.append(x)
-                    line = [line[0]]+marks+line[-2:]
+                    line = [line[0]]+[' '.join(marks)]+line[-2:]
 
 
                 table.append(line)
@@ -171,7 +171,7 @@ class DataParser:
             return name
 
 
-# a = DataParser()
-# a.login(ma_login, ma_pass)
-# b = a.schcedule(period='year')
-# print(b)
+a = DataParser()
+a.login(ma_login, ma_pass)
+b = a.schcedule(period='1')
+print(b)
