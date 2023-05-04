@@ -1,6 +1,8 @@
 import requests
 from bs4 import BeautifulSoup
 import logging
+import time
+import json
 
 # ma_login = '5185004386'
 # ma_pass = 'aC!pYG7W'
@@ -24,7 +26,7 @@ class DataParser:
         }
         self.relogin()
 
-    def relogin(self, func=None, retry=3, pass_try=3, **kwargs):
+    def relogin(self, func=None, retry=3, **kwargs):
         self.login_status = False
         try:
             req_login = self.session.post('https://edu.tatar.ru/logon', data=self.auth,
@@ -37,11 +39,12 @@ class DataParser:
                     else:
                         return func()
             else:
-                if pass_try:
-                    logging.warning(f'пароль не подошел, try={4 - pass_try}')
-                    return self.relogin(func=func, retry=retry, pass_try=(pass_try - 1), kwargs=kwargs)
-                else:
-                    return False
+                soup = BeautifulSoup(req_login.content)
+                alert = soup.find('div', class_='alert alert-danger').text
+                logging.warning(f'{time.strftime("%m/%d/%Y, %H:%M:%S", time.localtime())} -->  {alert}')
+                return False
+
+
         except Exception as ex:
             if retry:
                 print(f'[error] retry={retry}')
@@ -178,9 +181,10 @@ class DataParser:
                 "path": c.path,
                 "expires": c.expires
             })
-        return cookies
+        return json.dumps(cookies)
 
     def load_cookies(self, cookies):
+        cookies = json.loads(cookies)
         for c in cookies:
             self.session.cookies.set(**c)
 
