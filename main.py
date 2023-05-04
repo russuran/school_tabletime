@@ -88,7 +88,7 @@ def get_password(message):
 def log_in(message, login):
     password = message.text
     parser_worker = DataParser()
-    print('user ' + str(login) + ' ' + password + ' joined')
+    print('user ' + str(login) + ' ' + password + ' joined:' + str(message.chat.id))
     parser_worker.login(login, password)
     
     
@@ -362,15 +362,23 @@ def is_admin_check(chat_id):
 
 @bot.message_handler(commands=['send_all'])
 def send_to_all(message):
-    res = message.text.split("|")
-    data = get_add_id()
-    data = set(data)
-    for i in data:
-        bot.send_message(i[0], res[1])
-    print('end')
+    if is_admin_check(message.chat.id):
+        res = message.text.split("|")
+        data = get_add_id()
+        data = set(data)
+        for i in data:
+            bot.send_message(i[0], res[1])
     
         
-    
+@bot.message_handler(commands=['amount_of_users'])
+def send_to_all(message):
+    if is_admin_check(message.chat.id):
+        res = message.text.split("|")
+        data = get_add_id()
+        data = set(data)
+        bot.send_message(message.chat.id, f'На данный момент {len(data)} уникальных пользователей')
+            
+            
 def makeSchcedule(call, period):
     options = types.InlineKeyboardMarkup(row_width=1)
         
@@ -386,11 +394,11 @@ def makeSchcedule(call, period):
     if len(res[1][-1]) == 3 and len(res[1][0]) == 4:
         res[1][-1].insert(1, '')        
     
-    print(res[1])
     data = res[1]    
     
     periods = res[0]
     
+    print(login, 'schcedule')
     
     for i in periods.items():
         option = types.InlineKeyboardButton(i[0], callback_data=i[1])
@@ -454,7 +462,7 @@ def buildGradesToday(call):
     data = parser_worker.get_day_marks('')
     parser_worker.logout()
     
-    
+    print(login, 'buildGradesToday')
     
     t = Texttable()
     t.add_rows(data)
@@ -506,7 +514,7 @@ def changeDayOfGrades(call, sign):
     parser_worker.login(login, password)
     data = parser_worker.get_day_marks(str(int((time.mktime(date.timetuple())))))
     parser_worker.logout()
-    
+    print(login, 'changeDayOfGrades')
     t.add_rows(data)
         
     table_width = max([ len(x) for x in t.draw().split('\n') ])
@@ -688,6 +696,7 @@ def callback(call):
        
         
 def buildCalendar(message):
+    print(login, 'buildCalendar')
     now = datetime.datetime.now()
     bot.edit_message_text('🗓 Выберите нужную дату', message.chat.id, message.message_id,
                               reply_markup=calendar.create_calendar(
