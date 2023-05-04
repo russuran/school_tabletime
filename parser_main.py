@@ -89,7 +89,7 @@ class DataParser:
                     line.append('\n'.join(markslist))
 
                 else:
-                    line.append([])
+                    line.append('')
 
                 timetable.append(line)
         except Exception as ex:
@@ -140,8 +140,6 @@ class DataParser:
                         if x:
                             marks.append(x)
                     line = [line[0]]+[' '.join(marks)]+line[-2:]
-
-
                     table.append(line)
 
         except Exception as ex:
@@ -170,8 +168,27 @@ class DataParser:
         else:
             return name
 
+    def dump_cookies(self):
+        cookies = []
+        for c in self.session.cookies:
+            cookies.append({
+                "name": c.name,
+                "value": c.value,
+                "domain": c.domain,
+                "path": c.path,
+                "expires": c.expires
+            })
+        return cookies
+
+    def load_cookies(self, cookies):
+        for c in cookies:
+            self.session.cookies.set(**c)
+
 
 # a = DataParser()
 # a.login(ma_login, ma_pass)
-# b = a.schcedule(period='1')
-# print(b)
+# ck = a.dump_cookies()
+# print(ck)
+# b = DataParser()
+# b.load_cookies(ck)
+# print(b.schcedule())
