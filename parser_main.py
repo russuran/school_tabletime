@@ -1,3 +1,5 @@
+# import sqlite3
+
 import requests
 from bs4 import BeautifulSoup
 import logging
@@ -39,7 +41,7 @@ class DataParser:
                     else:
                         return func()
             else:
-                soup = BeautifulSoup(req_login.content)
+                soup = BeautifulSoup(req_login.content, 'lxml')
                 alert = soup.find('div', class_='alert alert-danger').text
                 logging.warning(f'{time.strftime("%m/%d/%Y, %H:%M:%S", time.localtime())} -->  {alert}')
                 return False
@@ -50,7 +52,7 @@ class DataParser:
                 print(f'[error] retry={retry}')
                 return self.relogin(func=func, retry=(retry - 1), kwargs=kwargs)
             else:
-                logging.warning('Сервер не отвечает')
+                logging.warning(f'{time.strftime("%m/%d/%Y, %H:%M:%S", time.localtime())} -->  Сервер не отвечает')
 
     def logout(self):
         logoff = self.session.get('https://edu.tatar.ru/logoff')
@@ -100,7 +102,7 @@ class DataParser:
                 print(f'[error] retry={retry}')
                 return self.get_day_marks(day=day, retry=(retry - 1))
             else:
-                logging.warning('Сервер не отвечает')
+                logging.warning(f'{time.strftime("%m/%d/%Y, %H:%M:%S", time.localtime())} --> Сервер не отвечает')
         else:
             return timetable
 
@@ -150,7 +152,7 @@ class DataParser:
                 print(f'[error] retry={retry}')
                 return self.schcedule(period=period, retry=(retry - 1))
             else:
-                logging.warning('Сервер не отвечает')
+                logging.warning(f'{time.strftime("%m/%d/%Y, %H:%M:%S", time.localtime())} --> Сервер не отвечает')
         else:
             return periods, table
 
@@ -167,7 +169,7 @@ class DataParser:
                 print(f'[error] retry={retry}')
                 return self.get_name(retry=(retry - 1))
             else:
-                logging.warning('Сервер не отвечает')
+                logging.warning(f'{time.strftime("%m/%d/%Y, %H:%M:%S", time.localtime())} --> Сервер не отвечает')
         else:
             return name
 
@@ -187,12 +189,21 @@ class DataParser:
         cookies = json.loads(cookies)
         for c in cookies:
             self.session.cookies.set(**c)
+        self.login_status = True
 
 
 # a = DataParser()
 # a.login(ma_login, ma_pass)
 # ck = a.dump_cookies()
-# print(ck)
+# # print(ck)
+# # b = DataParser()
+# # b.load_cookies(ck)
+# # print(b.schcedule())
+# conn = sqlite3.connect('db/telebot_users', check_same_thread=False)
+# cursor = conn.cursor()
+# # res = cursor.execute('UPDATE users SET cookie = ? WHERE login = ?', (ck, ma_login))
+# # conn.commit()
 # b = DataParser()
-# b.load_cookies(ck)
-# print(b.schcedule())
+# pechenki = cursor.execute('SELECT cookie, password FROM users WHERE login = ?', (ma_login,)).fetchone()[0]
+# b.load_cookies(pechenki)
+# print(b.get_name())
