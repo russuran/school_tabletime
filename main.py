@@ -696,7 +696,7 @@ def callback(call):
        
         
 def buildCalendar(message):
-    print(login, 'buildCalendar')
+    print(message.chat.id, 'buildCalendar')
     now = datetime.datetime.now()
     bot.edit_message_text('🗓 Выберите нужную дату', message.chat.id, message.message_id,
                               reply_markup=calendar.create_calendar(
