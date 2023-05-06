@@ -114,6 +114,7 @@ def log_in(message, login):
     if parser_worker.login_status:
         try:
             add_table_values(message.chat.id,message.from_user.first_name, login, password)
+	    cookie = parser_worker.dump_cookies()
             upd_cookies(login)
         except Exception as e:
 
