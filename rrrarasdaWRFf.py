@@ -9,10 +9,12 @@ import os
 import time
 import sqlite3
 from random import randint
+import threading
 
 
 from parser_main import DataParser
 
+user_data = {}
 
 class Adv:
     def __init__(self):
@@ -21,13 +23,14 @@ class Adv:
 
 bot = telebot.TeleBot("6040676784:AAF157wL-6d9Cla06BjP-2FPuT-UcRK6iZA", parse_mode='HTML')
 
+DAYS = ['понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу', 'воскресенье']
+MOUNTS = ['января', 'февраля','мара', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
 calendar = Calendar(language=RUSSIAN_LANGUAGE)
 
 calendar_1_callback = CallbackData("calendar_1", "action", "year", "month", "day")
 calendar_2_callback = CallbackData("calendar_2", "action", "year", "month", "day")
 
-
-conn = sqlite3.connect('backup/telebot_users', check_same_thread=False)
+conn = sqlite3.connect('db/telebot_users', check_same_thread=False)
 cursor = conn.cursor()
 
 
@@ -48,17 +51,17 @@ def reminder_set_name(message, date):
     bot.register_next_step_handler(message, reminder_set, date, message.text)
 
 
-def reminder_set(message, date, time):   
+def reminder_set(message, date, time):
+    global user_data
     try:
-        user_data = {}
         user_data[message.chat.id] = {'reminder_name': message.text}
+        print(user_data)
         date = date.split('.')
         time = time.split(':')
         
         reminder_time = datetime.datetime(int(date[2]), int(date[1]), int(date[0]), int(time[0]), int(time[1]))
         now = datetime.datetime.now()
         delta = reminder_time - now
-        print(delta)
         if delta.total_seconds() <= 0:
             bot.send_message(message.chat.id, 'Вы ввели прошедшую дату, попробуйте еще раз.')
         else:
@@ -66,14 +69,14 @@ def reminder_set(message, date, time):
             bot.send_message(message.chat.id, 'Напоминание "{}" установлено на {}.'.format(reminder_name, reminder_time))
             reminder_timer = threading.Timer(delta.total_seconds(), send_reminder, [message.chat.id, reminder_name])
             reminder_timer.start()
+            buildMainMenu(message)
     except ValueError:
         bot.send_message(message.chat.id, 'Вы ввели неверный формат даты и времени, попробуйте еще раз.')
-
+        buildMainMenu(message)
 
 def send_reminder(chat_id, reminder_name):
     bot.send_message(chat_id, 'Время получить ваше напоминание "{}"!'.format(reminder_name))
-
-
+    
 def add_table_values(user_id, name, login, password):
     cursor.execute('SELECT * FROM users WHERE user_id = ? AND login = ?', (user_id, login, ))
     res = cursor.fetchall()
@@ -81,10 +84,25 @@ def add_table_values(user_id, name, login, password):
         cursor.execute('INSERT INTO users (user_id, name, login, password) VALUES (?, ?, ?, ?)', (user_id, name, login, password))
         conn.commit()
     else:
-        #markup = types.InlineKeyboardMarkup(row_width=1)
-        #back = types.InlineKeyboardButton(text='⬅ Назад', callback_data='mainmenu')
-        #markup.row(back)
+        markup = types.InlineKeyboardMarkup(row_width=1)
+        back = types.InlineKeyboardButton(text='⬅ Назад', callback_data='mainmenu')
+        markup.row(back)
         bot.send_message(user_id, 'Такой пользователь уже добавлен в ваш аккаунт ⚙', reply_markup=markup)
+
+def upd_cookies(login, cookie):
+    cursor.execute('UPDATE users SET cookie = ? WHERE login = ?', (cookie, login))
+    conn.commit()
+
+def new_parser(login):
+    b = DataParser()
+    pechenki, passw = cursor.execute('SELECT cookie, password FROM users WHERE login = ?', (login,)).fetchone()[0]
+    if pechenki:
+        b.load_cookies(pechenki)
+    else:
+        b.login(login, passw)
+    return b
+
+
         
 @bot.message_handler(commands=['start', 'Войти'])
 def on_start(message):
@@ -93,9 +111,13 @@ def on_start(message):
         bot.send_message(message.chat.id, 'Админ панель', reply_markup=markup)
     
     else:
-        bot.send_message(message.chat.id, 'Сначала нужно войти в аккаунт')
-        
-        get_login(message)
+        cursor.execute('SELECT * FROM users WHERE user_id = ?', (message.chat.id,))
+        res = cursor.fetchall()
+        if len(res):
+            buildMainMenu(message, name=message.chat.first_name)
+        else:
+            bot.send_message(message.chat.id, 'Сначала нужно войти в аккаунт')
+            get_login(message)
 
 
 @bot.message_handler(commands=['add_admin'])
@@ -135,28 +157,16 @@ def get_password(message):
 def log_in(message, login):
     password = message.text
     parser_worker = DataParser()
-    print('user ' + str(login) + ' ' + password + ' joined:' + str(message.chat.id))
+    print('{}user ' + str(login) + ' ' + password + ' joined:' + str(message.chat.id))
     parser_worker.login(login, password)
-    
-    
-    
-	
     if parser_worker.login_status:
         try:
             add_table_values(message.chat.id,message.from_user.first_name, login, password)
+            upd_cookies(login)
         except Exception as e:
-            print(e)
-        markup = types.InlineKeyboardMarkup(row_width=1)
-        item3 = types.InlineKeyboardButton('🎒 Расписание и оценки', callback_data='Grades')
-        markup.row(item3)
-        
-        item1 = types.InlineKeyboardButton('🗓 Табель успеваемости', callback_data='year')
-        markup.row(item1)
-        
-        item4 = types.InlineKeyboardButton('⚙ Настройки', callback_data='Options')
-        markup.row(item4)
 
-        bot.send_message(message.chat.id, '✅ Авторизация прошла успешно!', reply_markup=markup)        
+            print(f'{time.strftime("%m/%d/%Y, %H:%M:%S", time.localtime())} --> {e}')
+        buildMainMenu(message)        
     
     else:
         markup = types.InlineKeyboardMarkup(row_width=1)
@@ -309,74 +319,6 @@ def mailing_adv(message, medialst, formatt):
     kb = show_admin_panel()
     bot.send_message(message.chat.id, f'Отправка завершена, доставлено {c}/{len(data)} сообщений', reply_markup=kb)
     
-    
-@bot.callback_query_handler(func=lambda call: call.data.startswith(calendar_1_callback.prefix))	    
-def callback_inline(call: CallbackQuery):
-        name, action, year, month, day = call.data.split(calendar_1_callback.sep)
-        date = calendar.calendar_query_handler(
-            bot=bot, call=call, name=name, action=action, year=year, month=month, day=day
-        )
-        print(name)
-        if action == "DAY":
-            options = types.InlineKeyboardMarkup(row_width=1)
-            
-            back = types.InlineKeyboardButton(text='⬅ Назад', callback_data='mainmenu')
-            
-            options.add(back)
-            
-
-            
-            userdata = logging(call)
-            login, password = userdata[0][0], userdata[0][1]         
-            parser_worker = DataParser()
-            parser_worker.login(login, password)
-            data = parser_worker.get_day_marks(str(int((time.mktime(date.timetuple())))))
-            parser_worker.logout()
-                
-            t = Texttable()
-            t.add_rows(data)
-                
-            table_width = max([ len(x) for x in t.draw().split('\n') ])
-                
-            table_height = 0
-            for i in t.draw():
-                if i == '\n':
-                    table_height += 1
-                        
-                
-            img = Image.new('RGB', (table_width * 20 - 50, table_height * 35 - 50), color = (255, 255, 255))
-            fnt = ImageFont.truetype("fonts/CourierNewPSMT.ttf", 30)
-                
-            ImageDraw.Draw(img).text((50,50), t.draw(), font=fnt, fill=(0,0,0))
-               
-            flname = str(randint(100000, 1000000))
-            img.save(f'{flname}.png')   
-                
-                
-            intDay = date.weekday()
-            days = ['понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу', 'воскресенье']
-            months = ['января', 'февраля','мара', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
-            bot.send_photo(call.message.chat.id, open(f'{flname}.png', 'rb'), caption=f'Ваше расписание на {days[intDay]} ({date.day} {months[date.month - 1]}) ✅', reply_markup=options)
-            
-            os.remove(f'{flname}.png')
-           
-                
-                
-        elif action == "CANCEL":
-            markup = types.InlineKeyboardMarkup(row_width=1)
-        
-            item2 = types.InlineKeyboardButton('🏫 Расписание', callback_data='TimeTable')
-            item3 = types.InlineKeyboardButton('🎒 Оценки', callback_data='Grades')
-            markup.row(item2, item3)
-        
-            item1 = types.InlineKeyboardButton('🗓 Табель успеваемости', callback_data='year')
-            markup.row(item1)
-        
-            item4 = types.InlineKeyboardButton('⚙ Настройки', callback_data='Options')
-            markup.row(item4)
-            
-            bot.send_message(call.message.chat.id, '✅ Рады видеть вас снова!', reply_markup=markup)
-           
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith(calendar_2_callback.prefix))	    
 def callback_inline(call: CallbackQuery):
@@ -397,22 +339,66 @@ def callback_inline(call: CallbackQuery):
                 
                 
         elif action == "CANCEL":
-            markup = types.InlineKeyboardMarkup(row_width=1)
-        
-            item2 = types.InlineKeyboardButton('🏫 Расписание', callback_data='TimeTable')
-            item3 = types.InlineKeyboardButton('🎒 Оценки', callback_data='Grades')
-            markup.row(item2, item3)
-        
-            item1 = types.InlineKeyboardButton('🗓 Табель успеваемости', callback_data='year')
-            markup.row(item1)
-        
-            item4 = types.InlineKeyboardButton('⚙ Настройки', callback_data='Options')
-            markup.row(item4)
+            buildMainMenu(message)
             
-            bot.send_message(call.message.chat.id, '✅ Рады видеть вас снова!', reply_markup=markup)
+            
+@bot.callback_query_handler(func=lambda call: call.data.startswith(calendar_1_callback.prefix))	    
+def callback_inline(call: CallbackQuery):
+        name, action, year, month, day = call.data.split(calendar_1_callback.sep)
+        date = calendar.calendar_query_handler(
+            bot=bot, call=call, name=name, action=action, year=year, month=month, day=day
+        )
+        if action == "DAY":
+            options = types.InlineKeyboardMarkup(row_width=1)
+            
+            back = types.InlineKeyboardButton(text='⬅ Назад', callback_data='mainmenu')
+            
+            options.add(back)
             
 
-def buildMainMenu(call, name=''):
+            
+            userdata = logging(call)
+            login, password = userdata[0][0], userdata[0][1]
+            parser_worker = DataParser()
+            parser_worker.login(login, password)
+            data = parser_worker.get_day_marks(str(int((time.mktime(date.timetuple())))))
+            parser_worker.logout()
+            
+            t = Texttable()
+            t.add_rows(data)
+            
+            table_width = max([ len(x) for x in t.draw().split('\n') ])
+            
+            table_height = 0
+            for i in t.draw():
+                if i == '\n':
+                    table_height += 1
+                    
+            
+            img = Image.new('RGB', (table_width * 20 - 50, table_height * 35 - 50), color = (255, 255, 255))
+            fnt = ImageFont.truetype("fonts/CourierNewPSMT.ttf", 30)
+            
+            ImageDraw.Draw(img).text((50,50), t.draw(), font=fnt, fill=(0,0,0))
+           
+            flname = str(randint(100000, 1000000))
+            img.save(f'{flname}.png')   
+            
+            
+            intDay = date.weekday()
+            days = ['понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу', 'воскресенье']
+            months = ['января', 'февраля','мара', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
+            bot.send_photo(call.message.chat.id, open(f'{flname}.png', 'rb'), caption=f'Ваше расписание на {days[intDay]} ({date.day} {months[date.month - 1]}) ✅', reply_markup=options)
+        
+            os.remove(f'{flname}.png')
+            
+        
+        elif action == "CANCEL":
+            buildMainMenu(message)
+           
+
+
+
+def buildMainMenu(message, name=''):
     markup = types.InlineKeyboardMarkup(row_width=1)
     
     item3 = types.InlineKeyboardButton('🎒 Расписание и оценки', callback_data='Grades')
@@ -420,6 +406,9 @@ def buildMainMenu(call, name=''):
     
     item1 = types.InlineKeyboardButton('🗓 Табель успеваемости', callback_data='year')
     markup.row(item1)
+    
+    item2 = types.InlineKeyboardButton('🏛 Прочие функции', callback_data='other')
+    markup.row(item2)
     
     item4 = types.InlineKeyboardButton('⚙ Настройки', callback_data='Options')
     markup.row(item4)
@@ -429,10 +418,10 @@ def buildMainMenu(call, name=''):
     else:
         res = '✅ Рады видеть вас снова!'
     try:
-        bot.edit_message_text(res, call.message.chat.id, call.message.message_id,
+        bot.edit_message_text(res, message.chat.id, message.message_id,
                               reply_markup=markup)
     except Exception as e:
-        bot.send_message(call.message.chat.id, res, reply_markup=markup)
+        bot.send_message(message.chat.id, res, reply_markup=markup)
     
 
 def is_admin_check(chat_id):
@@ -479,7 +468,7 @@ def makeSchcedule(call, period):
     
     periods = res[0]
     
-    print(login, 'schcedule')
+    print(f'{time.strftime("%m/%d/%Y, %H:%M:%S", time.localtime())} --> ',login, 'schcedule')
     
     for i in periods.items():
         option = types.InlineKeyboardButton(i[0], callback_data=i[1])
@@ -529,9 +518,9 @@ def buidGradesMenu(call):
 def buildGradesToday(call):
     options = types.InlineKeyboardMarkup(row_width=3)
     
-    previous = types.InlineKeyboardButton(text='⬅', callback_data='prev')
+    previous = types.InlineKeyboardButton(text='⬅', callback_data='next-1')
     back = types.InlineKeyboardButton(text='Назад', callback_data='mainmenu')
-    nextt = types.InlineKeyboardButton(text='➡', callback_data='nextt')
+    nextt = types.InlineKeyboardButton(text='➡', callback_data='next1')
     
     options.add(previous, back, nextt)
     
@@ -543,7 +532,7 @@ def buildGradesToday(call):
     data = parser_worker.get_day_marks('')
     parser_worker.logout()
     
-    print(login, 'buildGradesToday')
+    print(f'{time.strftime("%m/%d/%Y, %H:%M:%S", time.localtime())} --> ', login, 'buildGradesToday')
     
     t = Texttable()
     t.add_rows(data)
@@ -576,9 +565,9 @@ def buildGradesToday(call):
 def changeDayOfGrades(call, sign):
     options = types.InlineKeyboardMarkup(row_width=3)
     
-    previous = types.InlineKeyboardButton(text='⬅', callback_data='prev')
+    previous = types.InlineKeyboardButton(text='⬅', callback_data=f'next{sign-1}')
     back = types.InlineKeyboardButton(text='Назад', callback_data='mainmenu')
-    nextt = types.InlineKeyboardButton(text='➡', callback_data='nextt')
+    nextt = types.InlineKeyboardButton(text='➡', callback_data=f'next{sign+1}')
     
     options.add(previous, back, nextt)
     
@@ -595,7 +584,7 @@ def changeDayOfGrades(call, sign):
     parser_worker.login(login, password)
     data = parser_worker.get_day_marks(str(int((time.mktime(date.timetuple())))))
     parser_worker.logout()
-    print(login, 'changeDayOfGrades')
+    print(f'{time.strftime("%m/%d/%Y, %H:%M:%S", time.localtime())} --> ', login, 'changeDayOfGrades')
     t.add_rows(data)
         
     table_width = max([ len(x) for x in t.draw().split('\n') ])
@@ -614,23 +603,50 @@ def changeDayOfGrades(call, sign):
        
     flname = str(randint(100000, 1000000))
     img.save(f'{flname}.png')
-        
+    intDay = date.weekday()
     if len(data) != 1:
-        intDay = date.weekday()
-        days = ['понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу', 'воскресенье']
-        months = ['января', 'февраля','мара', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря']
-        bot.send_photo(call.message.chat.id, open(f'{flname}.png', 'rb'), caption=f'Ваше расписание на {days[intDay]} ({date.day} {months[date.month - 1]}) ✅', reply_markup=options)        
-
+        bot.send_photo(call.message.chat.id, open(f'{flname}.png', 'rb'), caption=f'Ваше расписание на {DAYS[intDay]} ({date.day} {MOUNTS[date.month - 1]}) ✅', reply_markup=options)
     else:
         try:
-            bot.edit_message_text('В этот день нет уроков!', call.message.chat.id, call.message.message_id,
-                                  reply_markup=options)
+            bot.send_message(call.message.chat.id, f'В этот день ({DAYS[intDay]}, {date.day} {MOUNTS[date.month - 1]}) нет уроков!', reply_markup=options)
         except Exception as e:
-            bot.send_message(call.message.chat.id, 'В этот день нет уроков!', reply_markup=options)
+            bot.send_message(call.message.chat.id, f'В этот день ({DAYS[intDay]}, {date.day} {MOUNTS[date.month - 1]}) нет уроков!', reply_markup=options)
     
     os.remove(f'{flname}.png')
+
+
+def buildOtherMenu(call, name=''):
+    markup = types.InlineKeyboardMarkup(row_width=1)
     
-@bot.callback_query_handler(func=lambda call: True)
+    item3 = types.InlineKeyboardButton('⏳ Напоминания (в разработке)', callback_data='checkTimes')
+    markup.row(item3)
+    
+    back = types.InlineKeyboardButton(text='⬅ Назад', callback_data='mainmenu')
+    markup.row(back)
+    
+    if name != '':
+        res = f'✅ Рады видеть вас снова, {name.split(" ")[-1]}!'
+    else:
+        res = '✅ Рады видеть вас снова!'
+    try:
+        bot.edit_message_text(res, call.message.chat.id, call.message.message_id,
+                              reply_markup=markup)
+    except Exception as e:
+        bot.send_message(call.message.chat.id, res, reply_markup=markup)    
+    
+
+@bot.callback_query_handler(func=lambda call: 'next' in call.data)
+def callback_arrows(call):
+    '''
+        КНОПКА СЛЕД И ПРЕД. ДЕНЬ
+    '''
+    if 'next' in call.data:
+        sign = int(call.data.split('next')[1])
+        changeDayOfGrades(call, sign)
+
+
+
+@bot.callback_query_handler(func=lambda call: 'next' not in  call.data)
 def callback(call):
     if call.data == 'login_error':
         bot.delete_message(call.message.chat.id, call.message.message_id)
@@ -657,8 +673,20 @@ def callback(call):
         for i in res:
             add_table_values(i[1], i[2], i[3], i[4])
         
-        buildMainMenu(call, name)
+        buildMainMenu(call.message, name)
             
+    
+    
+    if call.data == 'checkTimes':
+        reminder_message(call.message)
+        
+    '''
+    
+    ПРОЧИЕ ФУНКЦИИ
+    
+    '''
+    if call.data == 'other':
+        buildOtherMenu(call)
             
     '''
    
@@ -677,14 +705,7 @@ def callback(call):
     if call.data == 'check_grades_today':
         buildGradesToday(call)
      
-    '''
-    
-    КНОПКА СЛЕД И ПРЕД. ДЕНЬ
-    
-    '''
-    if call.data == 'prev' or call.data == 'nextt':
-        sign = 1 if call.data == 'nextt' else -1
-        changeDayOfGrades(call, sign)
+
     
     '''
     
@@ -713,7 +734,7 @@ def callback(call):
     
     '''
     if call.data == 'mainmenu':
-        buildMainMenu(call)
+        buildMainMenu(call.message)
                    
     
     
@@ -777,7 +798,7 @@ def callback(call):
        
         
 def buildCalendar(message):
-    print(message.chat.id, 'buildCalendar ')
+    print(f'{time.strftime("%m/%d/%Y, %H:%M:%S", time.localtime())} --> ', message.chat.id, 'buildCalendar')
     now = datetime.datetime.now()
     bot.edit_message_text('🗓 Выберите нужную дату', message.chat.id, message.message_id,
                               reply_markup=calendar.create_calendar(
