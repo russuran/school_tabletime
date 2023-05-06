@@ -115,7 +115,7 @@ def log_in(message, login):
         try:
             add_table_values(message.chat.id,message.from_user.first_name, login, password)
 	    cookie = parser_worker.dump_cookies()
-            upd_cookies(login)
+            upd_cookies(login, cookies)
         except Exception as e:
 
             print(f'{time.strftime("%m/%d/%Y, %H:%M:%S", time.localtime())} --> {e}')
