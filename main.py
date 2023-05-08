@@ -181,8 +181,19 @@ def reminder_set(message, date, time, func, text):
         now = datetime.datetime.now()
         delta = reminder_time - now
         if delta.total_seconds() <= 0:
+            markup = types.InlineKeyboardMarkup(row_width=1)
+            
+            tryagain = types.InlineKeyboardButton(text='🔄 Попробовать ещё раз',
+                                                  callback_data='checkTimes')
+            markup.row(tryagain)     
+            
+            back = types.InlineKeyboardButton(text='⬅ Назад',
+                                              callback_data='mainmenu')
+            markup.row(back)
+            
             bot.send_message(message.chat.id,
-                             'Вы ввели прошедшую дату, попробуйте еще раз.')
+                             'Вы ввели прошедшую дату, попробуйте еще раз.',
+                             reply_markup=markup)
         else:
             reminder_name = user_data[message.chat.id]['reminder_name']
             bot.send_message(message.chat.id,
@@ -202,13 +213,13 @@ def reminder_set(message, date, time, func, text):
 
 
 def send_reminder(message, reminder_name, func):
-    
-    bot.send_message(message.chat.id,
-                'Время получить ваше напоминание "{}"!'.format(reminder_name))
+    text = '🏛 Напоминание' if reminder_name == '-' else '🏛 Напоминание "{}"!'.format(reminder_name)
     if func == 'take_grades':
-        
-        buildGradesToday(message)
-        
+        buildGradesToday(message, text)
+    
+    else:
+        bot.send_message(message.chat.id,
+                    text)
 def add_table_values(user_id, name, login, password):
     cursor.execute('SELECT * FROM users WHERE user_id = ? AND login = ?',
                    (user_id, login, ))
@@ -319,7 +330,7 @@ def log_in(message, login):
                                            callback_data='login_error')
         markup.add(item1)
         bot.send_message(message.chat.id,
-                         'Неверный логин или пароль! (если же логин и пароль правильные, но не заходит, то скорее всего edu думает, что на них совершается ддос-атака, попробуйте ещё раз через 10 минут)',
+                         'Неверный логин или пароль!',
                                  reply_markup=markup)
 #601732567
 
@@ -719,7 +730,7 @@ def buidGradesMenu(call):
                           reply_markup=grades)
     
     
-def buildGradesToday(message):
+def buildGradesToday(message, text=''):
     options = types.InlineKeyboardMarkup(row_width=3)
     
     previous = types.InlineKeyboardButton(text='⬅', callback_data='next-1')
@@ -765,18 +776,19 @@ def buildGradesToday(message):
                            caption='Ваше расписание на сегодня ✅',
                            reply_markup=options)
         else:
-            bot.edit_message_text('В этот день нет уроков!', message.chat.id,
+            bot.edit_message_text('😯 В этот день нет уроков!', message.chat.id,
                                   message.message_id,
                                   reply_markup=options) 
     except Exception as e:  #для напоминаний
         if len(data) != 1:   
             bot.send_photo(message.chat.id, open(f'{flname}.png', 'rb'),
-                           caption='Ваше расписание на сегодня ✅',
+                           caption=f'{text} ✅',
                            reply_markup=options)
             
         else:
-            bot.send_message(message.chat.id, 'В этот день нет уроков!',
-                       reply_markup=options)
+            bot.send_message(message.chat.id,
+                             f'{text}: в этот день нет уроков!',
+                             reply_markup=options)
         
     os.remove(f'{flname}.png')
     
@@ -830,16 +842,16 @@ def changeDayOfGrades(call, sign):
     intDay = date.weekday()
     if len(data) != 1:
         bot.send_photo(call.message.chat.id, open(f'{flname}.png', 'rb'),
-                       caption=f'Ваше расписание на {DAYS[intDay]} ({date.day} {MOUNTS[date.month - 1]}) ✅',
+                       caption=f'🎒 Ваше расписание на {DAYS[intDay]} ({date.day} {MOUNTS[date.month - 1]}) ✅',
                            reply_markup=options)
     else:
         try:
             bot.send_message(call.message.chat.id,
-                             f'В этот день ({DAYS[intDay]}, {date.day} {MOUNTS[date.month - 1]}) нет уроков!',
+                             f'😯 В этот день ({DAYS[intDay]}, {date.day} {MOUNTS[date.month - 1]}) нет уроков!',
                              reply_markup=options)
         except Exception as e:
             bot.send_message(call.message.chat.id,
-                             f'В этот день ({DAYS[intDay]}, {date.day} {MOUNTS[date.month - 1]}) нет уроков!',
+                             f'😯 В этот день ({DAYS[intDay]}, {date.day} {MOUNTS[date.month - 1]}) нет уроков!',
                              reply_markup=options)
     
     os.remove(f'{flname}.png')
