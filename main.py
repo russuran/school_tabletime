@@ -10,7 +10,7 @@ import time
 import sqlite3
 from random import randint
 import threading
-
+import ast
 
 
 from parser_main import DataParser
@@ -23,11 +23,7 @@ class Adv:
         self.media = []
 
 
-class User_schedules:
-    def __init__(self, times: list, funcs: list):
-        self.times = times
-        self.funcs = funcs
-        
+
         
         
 bot = telebot.TeleBot("5840280561:AAHIAYI_ubnbZFWITMNvxv1RScpfhBtz8dE", parse_mode='HTML')
@@ -41,6 +37,11 @@ calendar_2_callback = CallbackData("calendar_2", "action", "year", "month", "day
 
 conn = sqlite3.connect('db/telebot_users', check_same_thread=False)
 cursor = conn.cursor()
+
+'''
+reminders db format:
+    [{user_id: [{type: dates: [wednessday, friday, etc...], time, text}, remind()]}]
+'''
 
 
 def reminder_message(message, func=None):
