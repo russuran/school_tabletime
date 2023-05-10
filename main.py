@@ -11,8 +11,10 @@ import sqlite3
 from random import randint
 import threading
 import ast
+
 from datetime import timedelta
 import traceback
+
 
 
 from parser_main import DataParser
@@ -24,6 +26,7 @@ class Adv:
     def __init__(self):
         self.text = None
         self.media = []     
+
         
         
 bot = telebot.TeleBot("6040676784:AAFlFXW51Y6Xa1KllObX5nlNgC4Q5Rx69Dw",
@@ -56,6 +59,11 @@ def get_next_dayofweek_datetime(date_time, dayofweek):
         day_diff = 7 - (start_time_w - target_w)
 
     return date_time + timedelta(days=day_diff)
+
+'''
+reminders db format:
+    [{user_id: [{type: dates: [wednessday, friday, etc...], time, text}, remind()]}]
+'''
 
 
 def reminder_message(message, func=None):
@@ -692,17 +700,21 @@ def callback_inline(call: CallbackQuery):
             
 @bot.callback_query_handler(func=lambda call: call.data.startswith(calendar_1_callback.prefix))	    
 def callback_inline(call: CallbackQuery):
-        name, action, year, month, day, function = call.data.split(calendar_1_callback.sep)
-        date = calendar.calendar_query_handler(
-            bot=bot,
-            call=call,
-            name=name,
-            action=action,
-            year=year,
-            month=month,
-            day=day
-        )
+        print(call.data)
+        action = call.data.split(calendar_1_callback.sep)[1]
+      
         if action == "DAY":
+            name, action, year, month, day, function = call.data.split(calendar_1_callback.sep)
+            function = function.split('.')[0]
+            date = calendar.calendar_query_handler(
+                bot=bot,
+                call=call,
+                name=name,
+                action=action,
+                year=year,
+                month=month,
+                day=day
+            )
             options = types.InlineKeyboardMarkup(row_width=1)
             
             back = types.InlineKeyboardButton(text='⬅ Назад',
@@ -752,8 +764,13 @@ def callback_inline(call: CallbackQuery):
             
         
         elif action == "CANCEL":
-            buildMainMenu(call.message)
-           
+
+            buildMainMenu(call.message, eco=call.data.split(':')[4].split('.')[0]=='eco')
+        elif action == 'PREVIOUS-MONTH':
+            buildCalendar(call.message, eco=call.data.split(':')[4].split('.')[0]=='eco', upd=int(call.data.split(':')[4].split('.')[1])-1)
+        elif action == 'NEXT-MONTH':
+            buildCalendar(call.message, eco=call.data.split(':')[4].split('.')[0]=='eco', upd=int(call.data.split(':')[4].split('.')[1])+1)
+
 
 
 
@@ -1338,19 +1355,55 @@ def callback(call):
         else:
             bot.send_message(call.message.chat.id, 'Доступ запрещён!',
                              reply_markup=markup)
-       
-        
-def buildCalendar(message):
+
+def buildOptionsmenu(call, eco=False):
+    options = types.InlineKeyboardMarkup(row_width=1)
+
+    add_user = types.InlineKeyboardButton(text='ㅤㅤㅤ✏ Добавить пользователяㅤㅤㅤ', callback_data='add_new')
+    options.row(add_user)
+
+    cursor.execute("SELECT * FROM users WHERE user_id=?",
+                   (str(call.message.chat.id),))
+    res = cursor.fetchall()
+
+    if len(res) != 1:
+        change = types.InlineKeyboardButton(text='👨‍💻 Поменять аккаунт',
+                                            callback_data='change_usr')
+        options.row(change)
+    eco_tr = types.InlineKeyboardButton(text='включить режим экономии трафика 🔋' if not eco else 'выключить режим экономии трафика 🪫', callback_data='traffic' if not eco else 'traffic_eco')
+    options.add(eco_tr)
+
+    back = types.InlineKeyboardButton(text='⬅ Назад',
+                                      callback_data='mainmenu' if not eco else 'mainmenu_eco')
+    options.add(back)
+    bot.edit_message_text('⚙ Настройки', call.message.chat.id,
+                          call.message.message_id,
+                          reply_markup=options)
+
+
+def buildCalendar(message, eco=False, upd=0):
+
     print(f'{time.strftime("%m/%d/%Y, %H:%M:%S", time.localtime())} --> ',
           message.chat.id, 'buildCalendar')
-    now = datetime.datetime.now()
+    today = datetime.date.today()
+    if abs(upd):
+        days = datetime.timedelta(days=30*abs(upd))
+        if upd > 0:
+            cur = today + days
+        elif upd < 0:
+            cur = today - days
+    else:
+        cur = today
     bot.edit_message_text('🗓 Выберите нужную датуㅤㅤ', message.chat.id,
                               message.message_id,
                               reply_markup=calendar.create_calendar(
                                   name=calendar_1_callback.prefix,
-                                  year=now.year,
-                                  month=now.month,
-                                  function="non",),)  
-    
+
+                                  year=cur.year,
+                                  month=cur.month,
+                                  function=f"non.{upd}" if not eco else f'eco.{upd}',),)
+
+
+
 if __name__ == '__main__':
     bot.polling(none_stop=True)
