@@ -534,17 +534,20 @@ def callback_inline(call: CallbackQuery):
 @bot.callback_query_handler(func=lambda call: call.data.startswith(calendar_1_callback.prefix))	    
 def callback_inline(call: CallbackQuery):
         print(call.data)
-        name, action, year, month, day, function = call.data.split(calendar_1_callback.sep)
-        date = calendar.calendar_query_handler(
-            bot=bot,
-            call=call,
-            name=name,
-            action=action,
-            year=year,
-            month=month,
-            day=day
-        )
+        action = call.data.split(calendar_1_callback.sep)[1]
+
         if action == "DAY":
+            name, action, year, month, day, function = call.data.split(calendar_1_callback.sep)
+            function = function.split('.')[0]
+            date = calendar.calendar_query_handler(
+                bot=bot,
+                call=call,
+                name=name,
+                action=action,
+                year=year,
+                month=month,
+                day=day
+            )
             options = types.InlineKeyboardMarkup(row_width=1)
             
             back = types.InlineKeyboardButton(text='⬅ Назад',
@@ -624,7 +627,11 @@ def callback_inline(call: CallbackQuery):
             
         
         elif action == "CANCEL":
-            buildMainMenu(call.message, eco=function=='eco')
+            buildMainMenu(call.message, eco=call.data.split(':')[4].split('.')[0]=='eco')
+        elif action == 'PREVIOUS-MONTH':
+            buildCalendar(call.message, eco=call.data.split(':')[4].split('.')[0]=='eco', upd=int(call.data.split(':')[4].split('.')[1])-1)
+        elif action == 'NEXT-MONTH':
+            buildCalendar(call.message, eco=call.data.split(':')[4].split('.')[0]=='eco', upd=int(call.data.split(':')[4].split('.')[1])+1)
 
 
 
@@ -1178,17 +1185,25 @@ def buildOptionsmenu(call, eco=False):
                           reply_markup=options)
 
 
-def buildCalendar(message, eco=False):
+def buildCalendar(message, eco=False, upd=0):
     print(f'{time.strftime("%m/%d/%Y, %H:%M:%S", time.localtime())} --> ',
           message.chat.id, 'buildCalendar')
-    now = datetime.datetime.now()
+    today = datetime.date.today()
+    if abs(upd):
+        days = datetime.timedelta(days=30*abs(upd))
+        if upd > 0:
+            cur = today + days
+        elif upd < 0:
+            cur = today - days
+    else:
+        cur = today
     bot.edit_message_text('🗓 Выберите нужную датуㅤㅤ', message.chat.id,
                               message.message_id,
                               reply_markup=calendar.create_calendar(
                                   name=calendar_1_callback.prefix,
-                                  year=now.year,
-                                  month=now.month,
-                                  function="non" if not eco else 'eco',),)
+                                  year=cur.year,
+                                  month=cur.month,
+                                  function=f"non.{upd}" if not eco else f'eco.{upd}',),)
 
 
 if __name__ == '__main__':
