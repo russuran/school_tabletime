@@ -297,15 +297,14 @@ def reminder_set(message, date, time, func, text, flg=False, rl_text=None):
                 reminder_set(message, str(date.date()), time, func, text,
                              True, message.text)
                 
-            buildMainMenu(message)
+           
         
         
             
         
-        if rl_text != None:
-            buildMainMenu(message)
+        buildMainMenu(message)
         
-    except Exception as e:    
+    except Exception:    
         traceback.print_exc()
         bot.send_message(message.chat.id,
                 'Вы ввели неверный формат даты и времени, попробуйте еще раз.',
@@ -350,7 +349,7 @@ def send_reminder_multiple(message, reminder_name, func, date, time, rl_text):
                 bot.send_message(message.chat.id, text)
             
             reminder_set(message, date, time, func, True, rl_text)
-            print('found')
+            print(i, func, date, time, rl_text)
     
 def add_table_values(user_id, name, login, password):
     
