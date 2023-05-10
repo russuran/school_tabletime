@@ -11,10 +11,8 @@ import sqlite3
 from random import randint
 import threading
 import ast
-
 from datetime import timedelta
 import traceback
-
 
 
 from parser_main import DataParser
@@ -26,7 +24,6 @@ class Adv:
     def __init__(self):
         self.text = None
         self.media = []     
-
         
         
 bot = telebot.TeleBot("6040676784:AAFlFXW51Y6Xa1KllObX5nlNgC4Q5Rx69Dw",
@@ -59,11 +56,6 @@ def get_next_dayofweek_datetime(date_time, dayofweek):
         day_diff = 7 - (start_time_w - target_w)
 
     return date_time + timedelta(days=day_diff)
-
-'''
-reminders db format:
-    [{user_id: [{type: dates: [wednessday, friday, etc...], time, text}, remind()]}]
-'''
 
 
 def reminder_message(message, func=None):
@@ -300,20 +292,23 @@ def reminder_set(message, date, time, func, text, flg=False, rl_text=None):
         else:
             for i in date:
                 date = get_next_dayofweek_datetime(datetime.datetime.now(),
-                                                   i)
-
+                                               i)
+                days  = ["monday","tuesday","wednesday",
+                         "thursday","friday","saturday","sunday"]
+                
+                if i == days[datetime.datetime.now().weekday()]:
+                    date = datetime.datetime.now()
                 reminder_set(message, str(date.date()), time, func, text,
                              True, message.text)
                 
-            buildMainMenu(message)
+           
         
         
             
         
-        if rl_text != None:
-            buildMainMenu(message)
+        buildMainMenu(message)
         
-    except Exception as e:    
+    except Exception:    
         traceback.print_exc()
         bot.send_message(message.chat.id,
                 'Вы ввели неверный формат даты и времени, попробуйте еще раз.',
@@ -341,14 +336,13 @@ def send_reminder_multiple(message, reminder_name, func, date, time, rl_text):
     res = cursor.fetchone()
     
     conn.close()
-    print(reminder_name, func, date, time, rl_text)
     dats = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday',
                   'saturday', 'sunday', 'all_days']
     x = ast.literal_eval(str(res[0]))
     for i in x:
+        print(i, func, date, time, rl_text)
         wk = str(dats[date.weekday()])
         t = str(time[0]) + ':' + str(time[1])
-        print(i, func, wk, t, rl_text)
         if func == i[0] and wk in i[1] and t == i[2][0] and rl_text == i[-1][0]:
             text = '🏛 Напоминание' if rl_text == '-' else '🏛 Напоминание "{}"!'.format(rl_text)
             if func == 'take_grades':
@@ -358,7 +352,7 @@ def send_reminder_multiple(message, reminder_name, func, date, time, rl_text):
                 bot.send_message(message.chat.id, text)
             
             reminder_set(message, date, time, func, True, rl_text)
-            print('found')
+            print(i, func, date, time, rl_text)
     
 def add_table_values(user_id, name, login, password):
     
@@ -700,21 +694,17 @@ def callback_inline(call: CallbackQuery):
             
 @bot.callback_query_handler(func=lambda call: call.data.startswith(calendar_1_callback.prefix))	    
 def callback_inline(call: CallbackQuery):
-        print(call.data)
-        action = call.data.split(calendar_1_callback.sep)[1]
-      
+        name, action, year, month, day, function = call.data.split(calendar_1_callback.sep)
+        date = calendar.calendar_query_handler(
+            bot=bot,
+            call=call,
+            name=name,
+            action=action,
+            year=year,
+            month=month,
+            day=day
+        )
         if action == "DAY":
-            name, action, year, month, day, function = call.data.split(calendar_1_callback.sep)
-            function = function.split('.')[0]
-            date = calendar.calendar_query_handler(
-                bot=bot,
-                call=call,
-                name=name,
-                action=action,
-                year=year,
-                month=month,
-                day=day
-            )
             options = types.InlineKeyboardMarkup(row_width=1)
             
             back = types.InlineKeyboardButton(text='⬅ Назад',
@@ -764,13 +754,8 @@ def callback_inline(call: CallbackQuery):
             
         
         elif action == "CANCEL":
-
-            buildMainMenu(call.message, eco=call.data.split(':')[4].split('.')[0]=='eco')
-        elif action == 'PREVIOUS-MONTH':
-            buildCalendar(call.message, eco=call.data.split(':')[4].split('.')[0]=='eco', upd=int(call.data.split(':')[4].split('.')[1])-1)
-        elif action == 'NEXT-MONTH':
-            buildCalendar(call.message, eco=call.data.split(':')[4].split('.')[0]=='eco', upd=int(call.data.split(':')[4].split('.')[1])+1)
-
+            buildMainMenu(call.message)
+           
 
 
 
@@ -1355,55 +1340,19 @@ def callback(call):
         else:
             bot.send_message(call.message.chat.id, 'Доступ запрещён!',
                              reply_markup=markup)
-
-def buildOptionsmenu(call, eco=False):
-    options = types.InlineKeyboardMarkup(row_width=1)
-
-    add_user = types.InlineKeyboardButton(text='ㅤㅤㅤ✏ Добавить пользователяㅤㅤㅤ', callback_data='add_new')
-    options.row(add_user)
-
-    cursor.execute("SELECT * FROM users WHERE user_id=?",
-                   (str(call.message.chat.id),))
-    res = cursor.fetchall()
-
-    if len(res) != 1:
-        change = types.InlineKeyboardButton(text='👨‍💻 Поменять аккаунт',
-                                            callback_data='change_usr')
-        options.row(change)
-    eco_tr = types.InlineKeyboardButton(text='включить режим экономии трафика 🔋' if not eco else 'выключить режим экономии трафика 🪫', callback_data='traffic' if not eco else 'traffic_eco')
-    options.add(eco_tr)
-
-    back = types.InlineKeyboardButton(text='⬅ Назад',
-                                      callback_data='mainmenu' if not eco else 'mainmenu_eco')
-    options.add(back)
-    bot.edit_message_text('⚙ Настройки', call.message.chat.id,
-                          call.message.message_id,
-                          reply_markup=options)
-
-
-def buildCalendar(message, eco=False, upd=0):
-
+       
+        
+def buildCalendar(message):
     print(f'{time.strftime("%m/%d/%Y, %H:%M:%S", time.localtime())} --> ',
           message.chat.id, 'buildCalendar')
-    today = datetime.date.today()
-    if abs(upd):
-        days = datetime.timedelta(days=30*abs(upd))
-        if upd > 0:
-            cur = today + days
-        elif upd < 0:
-            cur = today - days
-    else:
-        cur = today
+    now = datetime.datetime.now()
     bot.edit_message_text('🗓 Выберите нужную датуㅤㅤ', message.chat.id,
                               message.message_id,
                               reply_markup=calendar.create_calendar(
                                   name=calendar_1_callback.prefix,
-
-                                  year=cur.year,
-                                  month=cur.month,
-                                  function=f"non.{upd}" if not eco else f'eco.{upd}',),)
-
-
-
+                                  year=now.year,
+                                  month=now.month,
+                                  function="non",),)  
+    
 if __name__ == '__main__':
     bot.polling(none_stop=True)
