@@ -1,0 +1,5 @@
+telebot=0.0.5
+texttable=1.6.7
+Pillow=9.5.0
+requests=2.29.0
+beautifulsoup4=4.12.2
