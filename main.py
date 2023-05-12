@@ -31,8 +31,14 @@ bot = telebot.TeleBot("6040676784:AAFlFXW51Y6Xa1KllObX5nlNgC4Q5Rx69Dw",
 
 DAYS = ['понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу',
         'воскресенье']
+DAYS_SHORTEND = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
+
+DAYS_ENG  = ["monday","tuesday","wednesday", "thursday","friday","saturday",
+         "sunday"]
+
 MOUNTS = ['января', 'февраля','мара', 'апреля', 'мая', 'июня', 'июля',
           'августа', 'сентября', 'октября', 'ноября', 'декабря']
+
 calendar = Calendar(language=RUSSIAN_LANGUAGE)
 
 calendar_1_callback = CallbackData("calendar_1", "action", "year",
@@ -169,7 +175,7 @@ def chose_current_days(message, days=None):
         bot.edit_message_text('✍ Выберите дни (нажмите ещё раз, чтобы убрать день), после чего нажмите "Далее", при нажатии на день недели, подождите, пока он отметится :)', message.chat.id,
                               message.message_id,
                               reply_markup=markup)
-    except Exception as e:
+    except Exception:
         pass
 
 def choose_reminder_fuction(message, fix=None):
@@ -299,9 +305,9 @@ def reminder_set(message, date, time, func, text, flg=False, rl_text=None):
                                                      send_reminder,
                                                      [message, reminder_name, text])
                     
-                    
+                    text = f'🏛 Напоминание установлено на {int(date[1])} {MOUNTS[reminder_time.month]}, {time[0]}:{time[1]}!'
+                    bot.send_message(message.chat.id, text)
                 else:
-                    print(delta)
                     reminder_timer = threading.Timer(delta.total_seconds(),
                                                      send_reminder_multiple,
                                                      [message, reminder_name, text, date, time, rl_text])
@@ -311,31 +317,46 @@ def reminder_set(message, date, time, func, text, flg=False, rl_text=None):
                 else:
                     text = f'🏛 Напоминание "{reminder_name}" установлено на {curr_date}.'
                 
-                bot.send_message(message.chat.id, text)
+                #bot.send_message(message.chat.id, text)
                 
                 reminder_timer.start()
-                buildMainMenu(message)
         else:
+            saved_dates = date
             for i in date:
-                date = get_next_dayofweek_datetime(datetime.datetime.now(),
-                                               i)
-                days  = ["monday","tuesday","wednesday",
-                         "thursday","friday","saturday","sunday"]
+                date = get_next_dayofweek_datetime(datetime.datetime.now(), i)
+                days  = ["monday","tuesday","wednesday","thursday","friday",
+                         "saturday","sunday"]
                 
-                if i == days[datetime.datetime.now().weekday()]:
-                    date = datetime.datetime.now()
+                nowdate = datetime.datetime.now()
+                if i == days[nowdate.weekday()]:
+                    time = time.split(':')
+                    another_date = datetime.datetime(nowdate.year, nowdate.month,
+                                                     nowdate.day, int(time[0]), int(time[1]))
+                    if (another_date - nowdate).total_seconds() > 0:
+                        date = datetime.datetime.now()
+                        
                 reminder_set(message, str(date.date()), time, func, text,
                              True, message.text)
                 
-        
-    except Exception:    
+            if len(saved_dates) > 1:
+                days_to_print = ''
+                for i in saved_dates:
+                    days_to_print += f'{DAYS_SHORTEND[DAYS_ENG.index(i)]}, '
+                text = f"🏛 Ваши еженедельные напоминания на {days_to_print[:-2]} установлены"
+            else:
+                text = f"🏛 Ваше еженедельное напоминание на {DAYS[DAYS_ENG.index(days[date.weekday()])]} установлено"
+            
+            bot.send_message(message.chat.id, text)
+            buildMainMenu(message)
+            
+    except Exception:
+        print(traceback.format_exc())
         bot.send_message(message.chat.id,
                 'Вы ввели неверный формат даты и времени, попробуйте еще раз.',
                 reply_markup=markup)
         
 
 def send_reminder(message, reminder_name, func):
-    
     text = '🏛 Напоминание' if reminder_name == '-' else '🏛 Напоминание "{}"!'.format(reminder_name)
     if func == 'take_grades':
         buildGradesToday(message, text)
@@ -343,6 +364,7 @@ def send_reminder(message, reminder_name, func):
     else:
         bot.send_message(message.chat.id,
                     text)
+    buildMainMenu(message)
 
 
 def send_reminder_multiple(message, reminder_name, func, date, time, rl_text):
@@ -357,24 +379,26 @@ def send_reminder_multiple(message, reminder_name, func, date, time, rl_text):
     conn.close()
     dats = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday',
                   'saturday', 'sunday', 'all_days']
-    x = ast.literal_eval(str(res[0]))
-    for i in x:
-        
-        wk = dats[datetime.datetime(int(date[0]), int(date[1]), int(date[2])).weekday()]
-        t = str(time[0]) + ':' + str(time[1])
-        if func == i[0] and wk in i[1] and t == i[2][0] and rl_text == i[-1][0]:
-            text = '🏛 Напоминание' if rl_text == '-' else '🏛 Напоминание "{}"!'.format(rl_text)
-            if func == 'take_grades':
-                buildGradesToday(message, text)
+    if res != None:
+        x = ast.literal_eval(str(res[0]))
+        for i in x:
             
-            else:
-                bot.send_message(message.chat.id, text)
-            date = str(datetime.datetime(int(date[0]), int(date[1]), int(date[2])).date() + timedelta(days=7))
-            time = t
-            reminder_set(message, date, time, func, rl_text, True, rl_text)
-            print(i, func, date, time, rl_text, rl_text)
+            wk = dats[datetime.datetime(int(date[0]), int(date[1]), int(date[2])).weekday()]
+            t = str(time[0]) + ':' + str(time[1])
+            if func == i[0] and wk in i[1] and t == i[2][0] and rl_text == i[-1][0]:
+                text = '🏛 Еженедельное напоминание' if rl_text == '-' else '🏛 Еженедельное напоминание "{}"!'.format(rl_text)
+                if func == 'take_grades':
+                    buildGradesToday(message, text)
+                
+                else:
+                    bot.send_message(message.chat.id, text)
+                date = str(datetime.datetime(int(date[0]), int(date[1]), int(date[2])).date() + timedelta(days=7))
+                time = t
+                reminder_set(message, date, time, func, rl_text, True, rl_text)
 
-
+    buildMainMenu(message)
+    
+    
 def add_table_values(user_id, name, login, password):
     conn = sqlite3.connect('db/telebot_users', check_same_thread=False, timeout=15)
     cursor = conn.cursor()
@@ -491,7 +515,7 @@ def log_in(message, login):
             add_table_values(message.chat.id,
                              message.from_user.first_name, login, password)
             upd_cookies(login)
-        except Exception as e:
+        except Exception:
             pass
         buildMainMenu(message)        
     
@@ -528,7 +552,7 @@ def choose_user(call, res):
         bot.edit_message_text('✅ Выберите пользователя:',
                               call.message.chat.id, call.message.message_id,
                               reply_markup=markup)
-    except Exception as e:
+    except Exception:
         bot.send_message(call.message.chat.id,
                          '✅ Выберите пользователя:',
                          reply_markup=markup)
@@ -571,8 +595,8 @@ def advert_add_media(message, adv):
         mm = bot.send_message(message.chat.id, 'a',
                               reply_markup=types.ReplyKeyboardRemove())
         bot.delete_message(mm.chat.id, mm.id)
-        mes = bot.send_message(message.chat.id,
-                               'A теперь всё проверим:', reply_markup=markup)
+        bot.send_message(message.chat.id,
+                         'A теперь всё проверим:', reply_markup=markup)
         agree_send_adv(message, adv)
     elif message.text == '⬅ Назад':
         kb = show_admin_panel()
@@ -770,7 +794,7 @@ def callback_inline(call: CallbackQuery):
                         bot.send_message(call.message.chat.id,
                                          f'😯 В этот день ({DAYS[intDay]}, {date.day} {MOUNTS[date.month - 1]}) нет уроков!',
                                          reply_markup=options)
-                    except Exception as e:
+                    except Exception:
                         bot.send_message(call.message.chat.id,
                                          f'😯 В этот день ({DAYS[intDay]}, {date.day} {MOUNTS[date.month - 1]}) нет уроков!',
 
@@ -831,7 +855,6 @@ def buildMainMenu(message, name='', eco=False):
     item4 = types.InlineKeyboardButton('⚙ Настройки',
                                        callback_data='Options' if not eco else 'Options_eco')
     markup.row(item4)
-    a = "\n(Включен режим экономии трафика 🔋)"
     if name != '':
         res = f'✅ Рады видеть вас снова, {name.split(" ")[-1]}!' + "\n(Включен режим экономии трафика 🔋)" if eco else '✅ Рады видеть вас снова!'
     else:
@@ -839,7 +862,7 @@ def buildMainMenu(message, name='', eco=False):
     try:
         bot.edit_message_text(res, message.chat.id, message.message_id,
                               reply_markup=markup)
-    except Exception as e:
+    except Exception:
         bot.send_message(message.chat.id, res, reply_markup=markup)
 
 
@@ -998,31 +1021,21 @@ def buildGradesToday(message, text='', eco=False):
 
         flname = str(randint(100000, 1000000))
         img.save(f'{flname}.png')
-        try:
+        if text == '':
             if len(data) != 1:
-                bot.send_photo(message.chat.id, open(f'{flname}.png', 'rb'),
-                               caption='Ваше расписание на сегодня ✅',
-                               reply_markup=options)
+                text = 'Ваше расписание на сегодня ✅'
             else:
-                bot.send_message('😯 В этот день нет уроков!', message.chat.id,
-                                      message.message_id,
-                                      reply_markup=options)
-        except Exception as e:  #для напоминаний
-            if len(data) != 1:
-                bot.send_photo(message.chat.id, open(f'{flname}.png', 'rb'),
-                               caption=f'{text} ✅',
-                               reply_markup=options)
+                text = '😯 В этот день нет уроков!'
+         
+        bot.send_photo(message.chat.id, open(f'{flname}.png', 'rb'),
+                       caption=f'{text}', reply_markup=options)
 
-            else:
-                bot.send_message(message.chat.id,
-                                 f'😯 в этот день нет уроков!',
-                                 reply_markup=options)
 
         os.remove(f'{flname}.png')
     else:
         if len(data) != 1:
             tab = '<b>-----------------------------------------------</b>\n'
-            text = f'<i>🎒 Ваше расписание на сегодня ✅</i>' + tab
+            text = '<i>🎒 Ваше расписание на сегодня ✅</i>' + tab
             for i in data[1:]:
                 t = '—'.join(i[0].split('\n-\n'))
                 text += f'<b>{t}\n</b>'
@@ -1038,7 +1051,7 @@ def buildGradesToday(message, text='', eco=False):
 
             bot.send_message(message.chat.id, text, parse_mode='HTML', reply_markup=options)
         else:
-            bot.send_message( message.chat.id, '😯 В этот день нет уроков!',
+            bot.send_message(message.chat.id, '😯 В этот день нет уроков!',
 
                                   reply_markup=options)
 def changeDayOfGrades(call, sign, eco=False):
@@ -1098,7 +1111,7 @@ def changeDayOfGrades(call, sign, eco=False):
                 bot.send_message(call.message.chat.id,
                                  f'😯 В этот день ({DAYS[intDay]}, {date.day} {MOUNTS[date.month - 1]}) нет уроков!',
                                  reply_markup=options)
-            except Exception as e:
+            except Exception:
                 bot.send_message(call.message.chat.id,
                                  f'😯 В этот день ({DAYS[intDay]}, {date.day} {MOUNTS[date.month - 1]}) нет уроков!',
 
@@ -1108,7 +1121,7 @@ def changeDayOfGrades(call, sign, eco=False):
     else:
         if len(data) != 1:
             tab = '<b>-----------------------------------------------</b>\n'
-            text = f'<i>🎒 Ваше расписание на сегодня ✅</i>' + tab
+            text = '<i>🎒 Ваше расписание на сегодня ✅</i>' + tab
             for i in data[1:]:
                 t = '—'.join(i[0].split('\n-\n'))
                 text += f'<b>{t}\n</b>'
@@ -1152,6 +1165,221 @@ def buildOtherMenu(call, name=''):
         bot.send_message(call.message.chat.id, res, reply_markup=markup)    
     
 
+def buildDaysData(message, data):
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    if data != None:
+        for i in range(len(data)):
+            row_data = getRowData(data[i])
+            dat = types.InlineKeyboardButton(text=f'{row_data}',
+                                                  callback_data=f'deldat|{i}',
+                                                  reply_markup=markup)
+            markup.row(dat)
+    
+    
+    back = types.InlineKeyboardButton(text='⬅ Назад',
+                                      callback_data='mainmenu',
+                                      reply_markup=markup)
+    markup.row(back)
+    
+    try:
+        bot.edit_message_text('✍ Нажмите на напоминане, чтобы удалить его',
+                              message.chat.id, message.message_id,
+                              reply_markup=markup)
+    except Exception:
+        bot.edit_message_text('✍ Нaжмите на напоминане, чтобы удалить его',
+                              message.chat.id, message.message_id,
+                              reply_markup=markup)
+
+def getRowData(row):
+    row_data = ''
+    if row[0] == 'take_grades':
+        row_data += 'Оценки; '
+    
+    else:
+        row_data += 'Нет функц.; '
+    
+    for i in row[1]:
+        row_data += f'{DAYS_SHORTEND[DAYS_ENG.index(i)]}, '
+    
+    row_data = row_data[:-2]
+    
+    row_data += f'; {row[2][0]}; '
+    
+    if row[3] != '-':
+        row_data += f'"{row[3][0]}"'
+        
+    return row_data
+
+    
+def deleteRemindByIndex(call):
+    ind = call.data.split("|")
+    
+    conn = sqlite3.connect('db/telebot_users', check_same_thread=False, timeout=15)
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT reminds FROM reminders WHERE user_id = ?",
+                   (call.message.chat.id,))
+    
+    res = cursor.fetchone()
+    x = ast.literal_eval(str(res[0]))
+    del x[int(ind[-1])]
+    
+    if len(x) == 0:
+        cursor.execute("DELETE FROM reminders WHERE user_id = ?",
+                           (call.message.chat.id,))
+    else:
+        cursor.execute("UPDATE reminders SET reminds = ? WHERE user_id = ?",
+                          (str(x), call.message.chat.id, ))
+        
+    conn.commit()
+    conn.close()
+    buildDaysData(call.message, x)
+    
+
+def buildRemindersDeleteMenu(call):
+    conn = sqlite3.connect('db/telebot_users', check_same_thread=False, timeout=15)
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT reminds FROM reminders WHERE user_id = ?",
+                   (call.message.chat.id,))
+    
+    res = cursor.fetchone()
+    conn.close()
+    
+    x = ast.literal_eval(str(res[0]))
+    buildDaysData(call.message, x)
+    
+
+def addDaysToCurrentReminder(call):
+    conn = sqlite3.connect('db/telebot_users', check_same_thread=False, timeout=15)
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT reminds FROM reminders WHERE user_id = ?",
+                   (call.message.chat.id,))
+    
+    res = cursor.fetchone()
+    x = ast.literal_eval(str(res[0]))
+    curr_state = x[-1][1]
+    
+    #[fuction, [days], [time], [text]] 
+    if call.data not in curr_state: 
+        if call.data == 'all_days' and len(curr_state) != 7:
+            curr_state =  ['monday', 'tuesday', 'wednesday', 'thursday',
+                           'friday', 'saturday', 'sunday']
+        
+        else:
+            if call.data == 'all_days' and len(curr_state) != 0:
+                curr_state =  []
+        
+        if call.data != 'all_days':
+            curr_state.append(call.data)
+        
+    else:
+        del curr_state[curr_state.index(call.data)]
+    
+    x[-1][1] = curr_state
+    cursor.execute("UPDATE reminders SET reminds = ? WHERE user_id = ?",
+                   (str(x), call.message.chat.id, ))
+    conn.commit()
+    conn.close()    
+    
+    return curr_state
+    
+
+def createCurrReminder(call):
+    conn = sqlite3.connect('db/telebot_users', check_same_thread=False, timeout=15)
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT * FROM reminders WHERE user_id = ?",
+                   (call.message.chat.id,))
+    
+    res = cursor.fetchone()
+    function = [call.data.split("|")[-1], [], [], []]
+    
+    if res == None:   
+        cursor.execute("INSERT INTO reminders(user_id, reminds) VALUES (?, ?)",
+                       (call.message.chat.id, str([function]),))
+        conn.commit()
+    else:
+        cursor.execute("SELECT reminds FROM reminders WHERE user_id = ?",
+                       (call.message.chat.id,))
+        
+        res = cursor.fetchone()
+        x = ast.literal_eval(str(res[0]))
+        x.append(function)
+        
+        cursor.execute("UPDATE reminders SET reminds = ? WHERE user_id = ?",
+                       (str(x), call.message.chat.id, ))
+        conn.commit()
+        
+    conn.close()
+    
+  
+def getNextStepData(call):
+    conn = sqlite3.connect('db/telebot_users', check_same_thread=False, timeout=15)
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT reminds FROM reminders WHERE user_id = ?",
+                   (call.message.chat.id,))
+    
+    res = cursor.fetchone()
+    x = ast.literal_eval(str(res[0]))
+    curr_state = x[-1][1]
+    function = x[-1][0]
+    
+    return curr_state, function
+    
+
+def deleteCurrReminder(call):
+    conn = sqlite3.connect('db/telebot_users', check_same_thread=False, timeout=15)
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT reminds FROM reminders WHERE user_id = ?",
+                   (call.message.chat.id,))
+    
+    res = cursor.fetchone()
+    x = ast.literal_eval(str(res[0]))
+    del x[-1]
+    if len(x) == 0:
+        cursor.execute("DELETE FROM reminders WHERE user_id = ?",
+                       (call.message.chat.id,))
+    else:
+        cursor.execute("UPDATE reminders SET reminds = ? WHERE user_id = ?",
+                       (str(x), call.message.chat.id, ))
+    
+    conn.commit()
+    conn.close()
+    
+ 
+def addNewUser(call):
+    conn = sqlite3.connect('db/telebot_users', check_same_thread=False, timeout=15)
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM users WHERE user_id = ?",
+                   (str(call.message.chat.id),))
+    res = cursor.fetchall()
+    
+    cursor.execute("DELETE FROM users WHERE user_id = ?",
+                   (str(call.message.chat.id), ))
+    conn.commit()
+    conn.close()
+    index = call.data.split()
+    
+    index = int(index[0][-1])
+    
+    parser_worker = DataParser()
+    parser_worker.login(res[index][3], res[index][4])
+    name = parser_worker.get_name()
+    
+    add_table_values(res[index][1], res[index][2],
+                     res[index][3], res[index][4])
+    del res[index]
+    
+    for i in res:
+        add_table_values(i[1], i[2], i[3], i[4])
+    
+    return name
+
+
 @bot.callback_query_handler(func=lambda call: 'next' in call.data)
 def callback_arrows(call):
     '''
@@ -1180,33 +1408,8 @@ def callback(call):
     
     
     if 'user' in call.data:
-        conn = sqlite3.connect('db/telebot_users', check_same_thread=False, timeout=15)
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM users WHERE user_id = ?",
-                       (str(call.message.chat.id),))
-        res = cursor.fetchall()
-        
-        cursor.execute("DELETE FROM users WHERE user_id = ?",
-                       (str(call.message.chat.id), ))
-        conn.commit()
-        conn.close()
-        index = call.data.split()
-        
-        index = int(index[0][-1])
-        
-        parser_worker = DataParser()
-        parser_worker.login(res[index][3], res[index][4])
-        name = parser_worker.get_name()
-        
-        add_table_values(res[index][1], res[index][2],
-                         res[index][3], res[index][4])
-        del res[index]
-        
-        for i in res:
-            add_table_values(i[1], i[2], i[3], i[4])
-        
+        name = addNewUser(call)
         buildMainMenu(call.message, name)
-            
         
     '''
     
@@ -1217,133 +1420,27 @@ def callback(call):
         buildOtherMenu(call)
     
     if 'deldat|' in call.data:
-        ind = call.data.split("|")
-        
-        conn = sqlite3.connect('db/telebot_users', check_same_thread=False, timeout=15)
-        cursor = conn.cursor()
-        
-        res = cursor.fetchone()
-        
-        x = ast.literal_eval(str(res[0]))
-        
-        cursor.execute("UPDATE reminders SET reminds = ? WHERE user_id = ?",
-                       (str(x), call.message.chat.id, ))
-        conn.commit()
-        
-        conn.close()
-        
+        deleteRemindByIndex(call)
         
     if call.data == 'deldat':
-        markup = types.InlineKeyboardMarkup(row_width=1)
-        
-        
-        conn = sqlite3.connect('db/telebot_users', check_same_thread=False, timeout=15)
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT reminds FROM reminders WHERE user_id = ?",
-                       (call.message.chat.id,))
-        
-        res = cursor.fetchone()
-        conn.close()
-        
-        x = ast.literal_eval(str(res[0]))
-        print(x)
-        for i in range(len(x)):
-            for j in range(len(x[i][1])):
-                data = types.InlineKeyboardButton(text=f'{x[i][1][j]}',
-                                                  callback_data=f'deldat|{j}',
-                                                  reply_markup=markup)
-                markup.row(data)
-        
-        
-        back = types.InlineKeyboardButton(text='⬅ Назад',
-                                          callback_data='mainmenu',
-                                          reply_markup=markup)
-        markup.row(back)
-        
-        bot.send_message(call.message.chat.id,
-                         '✍ Нажмите на напоминане, чтобы удалить его',
-                         reply_markup=markup)
-        
-        
+        buildRemindersDeleteMenu(call)
         
     if call.data == 'checkTimes':
         choose_reminder_fuction(call.message)
         
-            
-    if call.data == 'one_time_reminder|pass':
-        reminder_message(call.message, 'None')
     
-    if call.data == 'one_time_reminder|take_grades':
-        reminder_message(call.message, 'take_grades')
-        
-    if call.data == 'many_time_reminder|pass' or\
-        call.data == 'many_time_reminder|take_grades':
-        conn = sqlite3.connect('db/telebot_users', check_same_thread=False, timeout=15)
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT * FROM reminders WHERE user_id = ?",
-                       (call.message.chat.id,))
-        
-        res = cursor.fetchone()
-        function = [call.data.split("|")[-1], [], [], []]
-        if res == None:    #[fuction, [days], [time], [text]]     
-            cursor.execute("INSERT INTO reminders(user_id, reminds) VALUES (?, ?)",
-                           (call.message.chat.id, str([function]),))
-            conn.commit()
-        else:
-            cursor.execute("SELECT reminds FROM reminders WHERE user_id = ?",
-                           (call.message.chat.id,))
-            
-            res = cursor.fetchone()
-            x = ast.literal_eval(str(res[0]))
-            x.append(function)
-            
-            cursor.execute("UPDATE reminders SET reminds = ? WHERE user_id = ?",
-                           (str(x), call.message.chat.id, ))
-            conn.commit()
-            
-        conn.close()
-        
+    if 'one_time_reminder|' in call.data:
+        function_to_pass = call.data.split("|")[-1]
+        reminder_message(call.message, function_to_pass)
+    
+    if 'many_time_reminder|' in call.data:
+        createCurrReminder(call)
         chose_current_days(call.message)
     
     if call.data in ['monday', 'tuesday', 'wednesday', 'thursday', 'friday',\
                   'saturday', 'sunday', 'all_days']:
         
-        conn = sqlite3.connect('db/telebot_users', check_same_thread=False, timeout=15)
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT reminds FROM reminders WHERE user_id = ?",
-                       (call.message.chat.id,))
-        
-        res = cursor.fetchone()
-        
-        x = ast.literal_eval(str(res[0]))
-        curr_state = x[-1][1]
-        
-        #[fuction, [days], [time], [text]] 
-        if call.data not in curr_state: 
-            if call.data == 'all_days' and len(curr_state) != 7:
-                curr_state =  ['monday', 'tuesday', 'wednesday', 'thursday',
-                               'friday', 'saturday', 'sunday']
-            
-            else:
-                if call.data == 'all_days' and len(curr_state) != 0:
-                    curr_state =  []
-            
-            if call.data != 'all_days':
-                curr_state.append(call.data)
-            
-        else:
-            del curr_state[curr_state.index(call.data)]
-        
-        x[-1][1] = curr_state
-        
-        cursor.execute("UPDATE reminders SET reminds = ? WHERE user_id = ?",
-                       (str(x), call.message.chat.id, ))
-        conn.commit()
-        
-        conn.close()
+        curr_state = addDaysToCurrentReminder(call)
         
         chose_current_days(call.message, curr_state)
         
@@ -1353,37 +1450,11 @@ def callback(call):
             choose_day_or_time(call.message, response)
            
     if call.data == 'nxt_step_chooser':
-        conn = sqlite3.connect('db/telebot_users', check_same_thread=False, timeout=15)
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT reminds FROM reminders WHERE user_id = ?",
-                       (call.message.chat.id,))
-        
-        res = cursor.fetchone()
-        x = ast.literal_eval(str(res[0]))
-        curr_state = x[-1][1]
-        function = x[-1][0]
+        curr_state, function = getNextStepData(call)
         reminder_set_time(call.message, curr_state, function, flg=True)
     
     if call.data == 'exitt':
-        conn = sqlite3.connect('db/telebot_users', check_same_thread=False, timeout=15)
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT reminds FROM reminders WHERE user_id = ?",
-                       (call.message.chat.id,))
-        
-        res = cursor.fetchone()
-        x = ast.literal_eval(str(res[0]))
-        del x[-1]
-        if len(x) == 0:
-            cursor.execute("DELETE FROM reminders WHERE user_id = ?",
-                           (call.message.chat.id,))
-        else:
-            cursor.execute("UPDATE reminders SET reminds = ? WHERE user_id = ?",
-                           (str(x), call.message.chat.id, ))
-        
-        conn.commit()
-        conn.close()
+        deleteCurrReminder(call)
         buildMainMenu(call.message)       
             
     '''
@@ -1445,11 +1516,16 @@ def callback(call):
         get_login(call.message)
     
     if call.data == 'change_usr':
+        conn = sqlite3.connect('db/telebot_users', check_same_thread=False, timeout=15)
+        cursor = conn.cursor()
+        
         cursor.execute("SELECT * FROM users WHERE user_id=?",
                        (str(call.message.chat.id),))
         res = cursor.fetchall()        
         
         choose_user(call, res)
+        
+        conn.close()
         
     if call.data == 'Options':
         buildOptionsmenu(call, eco=eco)
