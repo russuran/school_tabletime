@@ -1338,17 +1338,18 @@ def deleteCurrReminder(call):
                    (call.message.chat.id,))
     
     res = cursor.fetchone()
-    x = ast.literal_eval(str(res[0]))
-    del x[-1]
-    if len(x) == 0:
-        cursor.execute("DELETE FROM reminders WHERE user_id = ?",
-                       (call.message.chat.id,))
-    else:
-        cursor.execute("UPDATE reminders SET reminds = ? WHERE user_id = ?",
-                       (str(x), call.message.chat.id, ))
-    
-    conn.commit()
-    conn.close()
+    if res != None:
+        x = ast.literal_eval(str(res[0]))
+        del x[-1]
+        if len(x) == 0:
+            cursor.execute("DELETE FROM reminders WHERE user_id = ?",
+                           (call.message.chat.id,))
+        else:
+            cursor.execute("UPDATE reminders SET reminds = ? WHERE user_id = ?",
+                           (str(x), call.message.chat.id, ))
+        
+        conn.commit()
+        conn.close()
     
  
 def addNewUser(call):
