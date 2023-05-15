@@ -1,7 +1,7 @@
 import telebot
 from telebot import types
 from telebot_calendat import Calendar, CallbackData, RUSSIAN_LANGUAGE
-from telebot.types import CallbackQuery 
+from telebot.types import CallbackQuery, ReplyKeyboardRemove
 from texttable import Texttable
 import datetime
 from PIL import Image, ImageFont, ImageDraw
@@ -26,7 +26,7 @@ class Adv:
         self.media = []
 
 
-bot = telebot.TeleBot("5840280561:AAHIAYI_ubnbZFWITMNvxv1RScpfhBtz8dE",
+bot = telebot.TeleBot("5917177644:AAEebcOjhOUur4I8WF8qFyRAn5IEVAT6bdQ",
                       parse_mode='HTML')
 DAYS = ['понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу',
         'воскресенье']
@@ -124,18 +124,18 @@ def reminder_set_name(message, date, func, time, flg=False, eco=False):
 
 def choose_day_or_time(message, func=None, eco=False):
     markup = types.InlineKeyboardMarkup(row_width=1)
-    back = types.InlineKeyboardButton(text='Разовое',
+    back = types.InlineKeyboardButton(text='1⃣ Разовое',
                                       callback_data=f'one_time_reminder|{func}' if not eco else f'one_time_reminder|{func}_eco')
     markup.row(back)
 
-    back = types.InlineKeyboardButton(text='Ежедневное',
+    back = types.InlineKeyboardButton(text='🔂 Ежедневное',
                                       callback_data=f'many_time_reminder|{func}' if not eco else f'many_time_reminder|{func}_eco')
     markup.row(back)
 
     back = types.InlineKeyboardButton(text='⬅ Отмена',
                                       callback_data='mainmenu' if not eco else 'mainmenu_eco')
     markup.row(back)     
-    bot.edit_message_text('Выберите тип напоминания', message.chat.id,
+    bot.edit_message_text('✍ Выберите тип напоминания:', message.chat.id,
                           message.message_id,
                           reply_markup=markup)
 
@@ -188,6 +188,12 @@ def choose_reminder_fuction(message, fix=None, eco=False):
     
     elif fix == 'pass':
         return 'pass' if not eco else 'pass_eco'
+    
+    elif fix == 'take_grades_xtra':
+        return 'take_grades_xtra' if not eco else 'pass_eco'
+    
+    elif fix == 'table_grades':
+        return 'table_grades' if not eco else 'pass_eco'
         
     else:    
         markup = types.InlineKeyboardMarkup(row_width=1)
@@ -196,27 +202,23 @@ def choose_reminder_fuction(message, fix=None, eco=False):
                                           callback_data='take_grades' if not eco else 'take_grades_eco',
                                           reply_markup=markup)
         markup.row(back)
+        
+        back = types.InlineKeyboardButton(text='📆 Расписание на следующий день',
+                                          callback_data='take_grades_xtra' if not eco else 'take_grades_eco',
+                                          reply_markup=markup)
+        markup.row(back)
+        
+        back = types.InlineKeyboardButton(text='📆 Табель успеваемости',
+                                          callback_data='table_grades' if not eco else 'take_grades_eco',
+                                          reply_markup=markup)
+        markup.row(back)
+        
         back = types.InlineKeyboardButton(text='🚫 Без функции',
                                           callback_data='pass' if not eco else 'pass_eco',
                                           reply_markup=markup)
         markup.row(back)
-        conn = sqlite3.connect('db/telebot_users', check_same_thread=False, timeout=15)
-        cursor = conn.cursor()
-
-        cursor.execute("SELECT * FROM reminders WHERE user_id = ?",
-                       (message.chat.id,))
-
-        res = cursor.fetchone()
-        conn.close()
-
-        if res != None:
-            back = types.InlineKeyboardButton(text='✍ Удалить существующие',
-                                              callback_data='deldat' if not eco else 'deldat_eco',
-                                              reply_markup=markup)
-
-            markup.row(back)
-        back = types.InlineKeyboardButton(text='⬅ Отмена',
-                                          callback_data='mainmenu' if not eco else 'mainmenu_eco',
+        back = types.InlineKeyboardButton(text='⬅ Назад',
+                                          callback_data='choosePartReminder' if not eco else 'mainmenu_eco', #тут тоже внимательно
                                           reply_markup=markup)
         markup.row(back)
         bot.edit_message_text('✍ Выберите функцию:ㅤㅤㅤ', message.chat.id,
@@ -233,7 +235,7 @@ def reminder_set(message, date, time, func, text, flg=False, rl_text=None, eco=F
         markup = types.InlineKeyboardMarkup(row_width=1)
         
         tryagain = types.InlineKeyboardButton(text='🔄 Попробовать ещё раз',
-                                              callback_data='checkTimes' if not eco else 'checkTimes_eco')
+                                              callback_data='choosePartReminder' if not eco else 'checkTimes_eco')
         markup.row(tryagain)     
         
         back = types.InlineKeyboardButton(text='⬅ Назад',
@@ -291,7 +293,7 @@ def reminder_set(message, date, time, func, text, flg=False, rl_text=None, eco=F
             if delta.total_seconds() <= 0:
                 markup = types.InlineKeyboardMarkup(row_width=1)
                 tryagain = types.InlineKeyboardButton(text='🔄 Попробовать ещё раз',
-                                                      callback_data='checkTimes' if not eco else 'checkTimes_eco')
+                                                      callback_data='choosePartReminder' if not eco else 'checkTimes_eco')
                 markup.row(tryagain)
                 back = types.InlineKeyboardButton(text='⬅ Назад',
                                                   callback_data='mainmenu' if not eco else 'mainmenu_eco')
@@ -310,7 +312,7 @@ def reminder_set(message, date, time, func, text, flg=False, rl_text=None, eco=F
                 else:
                     reminder_timer = threading.Timer(delta.total_seconds(),
                                                      send_reminder_multiple,
-                                                     [message, reminder_name, text, date, time, rl_text])
+                                                     [message, reminder_name, text, date, time, rl_text, eco])
 
 
                 reminder_timer.start()
@@ -355,9 +357,14 @@ def send_reminder(message, reminder_name, func, eco=False):
     if func == 'take_grades':
         buildGradesToday(message, text, eco=eco)
     
-    else:
+    elif func == 'pass':
         bot.send_message(message.chat.id,
                     text)
+    elif func == 'take_grades_xtra':
+        changeDayOfGrades(message, 1)
+    
+    elif func == 'table_grades':
+        makeSchcedule('year')
     buildMainMenu(message, eco=eco)
 
 def send_reminder_multiple(message, reminder_name, func, date, time, rl_text, eco):
@@ -383,7 +390,13 @@ def send_reminder_multiple(message, reminder_name, func, date, time, rl_text, ec
                 text = '🏛 Еженедельное напоминание' if rl_text == '-' else '🏛 Еженедельное напоминание "{}"!'.format(
                     rl_text)
                 if func == 'take_grades':
-                    buildGradesToday(message, text)
+                    buildGradesToday(message, text, eco=eco)
+
+                elif func == 'take_grades_xtra':
+                    changeDayOfGrades(message, 1)
+                
+                elif func == 'table_grades':
+                    makeSchcedule('year')
 
                 else:
                     bot.send_message(message.chat.id, text)
@@ -843,7 +856,7 @@ def callback_inline(call: CallbackQuery):
 
 
 def buildMainMenu(message, name='', eco=False):
-    markup = types.InlineKeyboardMarkup(row_width=1)
+    markup = types.InlineKeyboardMarkup(row_width=1) 
 
     item3 = types.InlineKeyboardButton('🎒 Расписание и оценки',
                                        callback_data='Grades'if not eco else 'Grades_eco')
@@ -954,17 +967,28 @@ def makeSchcedule(call, period, eco=False):
         img.save(f'{flname}.png')
 
 
-
-        bot.send_photo(call.message.chat.id, open(f'{flname}.png', 'rb'),
-                       caption=f'✅ Ваш табель успеваемости за {per.lower()}',
-                       reply_markup=options)
+        try:
+            bot.edit_message_media(chat_id=call.message.chat.id,
+                                   message_id=call.message.message_id,
+                                   media=types.InputMediaPhoto(open(f'{flname}.png', 'rb'),
+                                                               caption=f'✅ Ваш табель успеваемости за {per.lower()}'),
+                                   reply_markup=options)
+        except Exception:
+            bot.send_photo(call.message.chat.id, open(f'{flname}.png', 'rb'),
+                           caption=f'✅ Ваш табель успеваемости за {per.lower()}',
+                           reply_markup=options)
 
         os.remove(f'{flname}.png')
     else:
         text = '\n'.join(list(map(lambda x: ' '.join(x), data[1:])))
 
         text = f'✅ Ваш табель успеваемости за {per.lower()}\n' + text
-        bot.send_message(call.message.chat.id, text, reply_markup=options)
+        
+        bot.edit_message_text(text, call.message.chat.id,
+                              call.message.message_id,
+                              reply_markup=options)
+        
+        #bot.send_message(call.message.chat.id, text, reply_markup=options)
  
 
 def buidGradesMenu(call, eco=False):
@@ -1060,7 +1084,7 @@ def buildGradesToday(message, text='', eco=False):
             bot.send_message( message.chat.id, '😯 В этот день нет уроков!',
 
                                   reply_markup=options)
-def changeDayOfGrades(call, sign, eco=False):
+def changeDayOfGrades(message, sign, eco=False):
     options = types.InlineKeyboardMarkup(row_width=3)
     
     previous = types.InlineKeyboardButton(text='⬅'
@@ -1069,9 +1093,9 @@ def changeDayOfGrades(call, sign, eco=False):
                                       callback_data='mainmenu' if not eco else 'mainmenu_eco')
     nextt = types.InlineKeyboardButton(text='➡',
                                        callback_data=f'next{sign+1}' if not eco else f'next{sign+1}_eco')
-
+    
     options.add(previous, back, nextt)
-    userdata = logging(call.message)
+    userdata = logging(message)
     login, password = userdata[0][0], userdata[0][1]
     parser_worker = DataParser()
     parser_worker.login(login, password)
@@ -1082,9 +1106,6 @@ def changeDayOfGrades(call, sign, eco=False):
     intDay = date.weekday()
     if not eco:
         t = Texttable()
-
-           #fixxxx
-
 
         print(f'{time.strftime("%m/%d/%Y, %H:%M:%S", time.localtime())} --> ',
               login, 'changeDayOfGrades')
@@ -1107,18 +1128,30 @@ def changeDayOfGrades(call, sign, eco=False):
 
         flname = str(randint(100000, 1000000))
         img.save(f'{flname}.png')
-
+        
         if len(data) != 1:
-            bot.send_photo(call.message.chat.id, open(f'{flname}.png', 'rb'),
-                           caption=f'🎒 Ваше расписание на {DAYS[intDay]} ({date.day} {MOUNTS[date.month - 1]}) ✅',
+            try:
+                bot.edit_message_media(chat_id=message.chat.id,
+                                       message_id=message.message_id,
+                                       media=types.InputMediaPhoto(open(f'{flname}.png', 'rb'),
+                                                                   caption=f'🎒 Ваше расписание на {DAYS[intDay]} ({date.day} {MOUNTS[date.month - 1]}) ✅'),
+                                       reply_markup=options)
+                
+            except Exception:
+                bot.delete_message(message.chat.id, message.message_id)
+                bot.send_photo(message.chat.id,
+                               open(f'{flname}.png', 'rb'),
+                               caption=f'🎒 Ваше расписание на {DAYS[intDay]} ({date.day} {MOUNTS[date.month - 1]}) ✅',
                                reply_markup=options)
         else:
             try:
-                bot.send_message(call.message.chat.id,
-                                 f'😯 В этот день ({DAYS[intDay]}, {date.day} {MOUNTS[date.month - 1]}) нет уроков!',
-                                 reply_markup=options)
-            except Exception as e:
-                bot.send_message(call.message.chat.id,
+                bot.edit_message_text(f'😯 В этот день ({DAYS[intDay]}, {date.day} {MOUNTS[date.month - 1]}) нет уроков!',
+                                      message.chat.id, message.message_id,
+                                      reply_markup=options)
+              
+            except Exception:
+                bot.delete_message(message.chat.id, message.message_id)
+                bot.send_message(message.chat.id,
                                  f'😯 В этот день ({DAYS[intDay]}, {date.day} {MOUNTS[date.month - 1]}) нет уроков!',
 
                                  reply_markup=options)
@@ -1141,9 +1174,9 @@ def changeDayOfGrades(call, sign, eco=False):
                 text += comm
                 text += tab
 
-            bot.send_message(call.message.chat.id, text, parse_mode='HTML', reply_markup=options)
+            bot.send_message(message.chat.id, text, parse_mode='HTML', reply_markup=options)
         else:
-            bot.send_message(call.message.chat.id, f'😯 В этот день ({DAYS[intDay]}, {date.day} {MOUNTS[date.month - 1]}) нет уроков!',
+            bot.send_message(message.chat.id, f'😯 В этот день ({DAYS[intDay]}, {date.day} {MOUNTS[date.month - 1]}) нет уроков!',
 
                                   reply_markup=options)
 
@@ -1151,7 +1184,7 @@ def buildOtherMenu(call, name='', eco=False):
     markup = types.InlineKeyboardMarkup(row_width=1)
     
     item3 = types.InlineKeyboardButton('⏳ Напоминания',
-                                       callback_data='checkTimes' if not eco else 'checkTimes_eco')
+                                       callback_data='choosePartReminder' if not eco else 'checkTimes_eco')
     markup.row(item3)
     
     back = types.InlineKeyboardButton(text='⬅ Назад',
@@ -1182,7 +1215,7 @@ def buildDaysData(message, data, eco=False):
 
 
     back = types.InlineKeyboardButton(text='⬅ Назад',
-                                      callback_data='mainmenu' if not eco else 'mainmenu_eco',
+                                      callback_data='choosePartReminder' if not eco else 'mainmenu_eco', #внимание
                                       reply_markup=markup)
     markup.row(back)
 
@@ -1200,8 +1233,14 @@ def getRowData(row):
     if row[0] == 'take_grades':
         row_data += 'Оценки; '
 
+    elif row[0] == 'table_grades':
+        row_data += 'Табель усп.; '
+    
+    elif row[0] == 'take_grades_xtra':
+        row_data += 'Оценки-сл.день; '
+    
     else:
-        row_data += 'Нет функц.; '
+        row_data += 'Нет функц.'
 
     for i in row[1]:
         row_data += f'{DAYS_SHORTEND[DAYS_ENG.index(i)]}, '
@@ -1250,9 +1289,18 @@ def buildRemindersDeleteMenu(call, eco=False):
 
     res = cursor.fetchone()
     conn.close()
-
-    x = ast.literal_eval(str(res[0]))
-    buildDaysData(call.message, x, eco=eco)
+    if res != None:
+        x = ast.literal_eval(str(res[0]))
+        buildDaysData(call.message, x, eco=eco)
+    else:
+        markup = types.InlineKeyboardMarkup(row_width=1)
+        back = types.InlineKeyboardButton(text='⬅ Назад',
+                    callback_data='choosePartReminder' if not eco else 'mainmenu_eco') #Тут внимательно дату смотри
+        markup.row(back)
+        
+        bot.edit_message_text('Кажется, у вас нет активных напоминаний',
+                              call.message.chat.id, call.message.message_id,
+                              reply_markup=markup)
 
 
 def addDaysToCurrentReminder(call):
@@ -1386,6 +1434,25 @@ def addNewUser(call):
     return name
 
 
+def chooseFunc(call):
+    markup = types.InlineKeyboardMarkup(row_width=1)
+    item1 = types.InlineKeyboardButton('🎆 Добавить напоминания',
+                                       callback_data='checkTimes')
+    markup.row(item1)
+    
+    item1 = types.InlineKeyboardButton('🎇 Удалить напоминания',
+                                       callback_data='deldat')
+    markup.row(item1)
+    
+    item1 = types.InlineKeyboardButton('⬅ Назад',
+                                       callback_data='other')
+    markup.row(item1)
+    
+    bot.edit_message_text('Выберите действие  ✍',
+                          call.message.chat.id, call.message.message_id,
+                          reply_markup=markup)
+
+
 @bot.callback_query_handler(func=lambda call: 'next' in call.data)
 def callback_arrows(call):
     '''
@@ -1397,13 +1464,14 @@ def callback_arrows(call):
         call.data = call.data[:-4]
     if 'next' in call.data:
         sign = int(call.data.split('next')[1])
-        changeDayOfGrades(call, sign, eco=eco)
+        changeDayOfGrades(call.message, sign, eco=eco)
 
 
 
 @bot.callback_query_handler(func=lambda call: 'next' not in  call.data)
 def callback(call):
     eco = False
+    print(call.data)
     if 'eco' in call.data:
         eco = True
         call.data = call.data[:-4]
@@ -1431,7 +1499,10 @@ def callback(call):
 
     if call.data == 'deldat':
         buildRemindersDeleteMenu(call, eco)
-        
+    
+    if call.data == 'choosePartReminder':
+        chooseFunc(call)
+    
     if call.data == 'checkTimes':
         choose_reminder_fuction(call.message, eco=eco)
 
@@ -1450,7 +1521,7 @@ def callback(call):
             curr_state = [x+'_eco' for x in curr_state]
         chose_current_days(call.message, curr_state, eco=eco)
 
-    if call.data == 'take_grades' or call.data == 'pass':
+    if call.data in ['take_grades', 'pass', 'take_grades_xtra', 'table_grades']:
         response = choose_reminder_fuction(call.message, call.data)
         if 'eco' in response:
             eco = True
