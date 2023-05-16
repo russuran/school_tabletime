@@ -26,8 +26,9 @@ class Adv:
         self.media = []
 
 
-bot = telebot.TeleBot("5840280561:AAHIAYI_ubnbZFWITMNvxv1RScpfhBtz8dE",
+bot = telebot.TeleBot("6040676784:AAFlFXW51Y6Xa1KllObX5nlNgC4Q5Rx69Dw",
                       parse_mode='HTML')
+
 DAYS = ['понедельник', 'вторник', 'среду', 'четверг', 'пятницу', 'субботу',
         'воскресенье']
 DAYS_SHORTEND = ['пн', 'вт', 'ср', 'чт', 'пт', 'сб', 'вс']
