@@ -1735,4 +1735,4 @@ def buildCalendar(message, eco=False, upd=0):
 
 
 if __name__ == '__main__':
-    bot.polling(none_stop=True)
+    bot.infinity_polling()
